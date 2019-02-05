@@ -3,10 +3,101 @@
 ;;;
 
 (define-module LISP1.5.runtime
+  (use gauche.uvector)
   (export lisp-cons? lisp-symbol?
           symbol-name symbol-intern symbol-plist)
   )
 (select-module LISP1.5.runtime)
+
+;; We don't really emulate IBM70x, but define a similar memory structure
+;; so that we can get the feeling of those past days.
+;;
+;; Main memory conists of three areas: Cells, bytes, and native objects.
+;;
+;; Cells are an array of 64bit word.  Each word is devided to two 32bit 
+;; word, the upper portion as "Address" field and the lower portion is
+;; "Decrement" field (these terms only have historical significance).
+;; Each field contains index to other objects.
+;;
+;; The index space is divided by its higher bits.
+;;
+;;    00xxxx....    Index to cell array
+;;    01xxxx....    Index to byte array
+;;    10xxxx....    Immediate fixnum value (30bit signed int)
+;;    11xxxx....    Index to native object array.
+;;
+;; Native object array has Gauche objects, and we store built-in primitives
+;; and flonums in it.
+
+(define-class <memory> ()
+  ((cells :init-keyword :cells)         ; u64vector
+   (num-cells :init-keyword :num-cells)
+
+   (bytes :init-keyword :bytes)         ; u8vector
+   (num-bytes :init-keyword :num-bytes)
+
+   (natives :init-keyword :natives)     ; vector, auto extended
+
+   (freecell :init-value 0)             ; chain of free cells
+   (freebyte :init-value 0)             ; beginning of free bytes
+   ))
+
+(define-constant *ATOM* #xffffffff)
+(define-constant *NIL* 0)               ; reserve cell #0 for NIL
+
+(define (make-memory num-cells num-bytes)
+  (define cells (make-u64vector num-cells))
+  (define bytes (make-u8vector num-bytes))
+  (define natives (make-vector 10000 (undefined)))
+
+  ;; Build freelist
+  (dotimes [i (- num-cells 1)]
+    (set! (~ cells i) (+ i 1)))
+  (set! (~ cells (- num-cells 1)) *NIL*)
+
+  (make <memory>
+    :num-cells num-cells
+    :cells cells
+    :num-bytes num-bytes
+    :bytes bytes
+    :natives natives))
+
+;; Procedures with '$' takes and/or returns index to the memory
+
+;; index classification
+(define ($index-type ind)
+  (cond [(< ind #x4000_0000) 'cell]
+        [(< ind #x8000_0000) 'bytes]
+        [(< ind #xc000_0000) 'fixnum]
+        [else 'native]))
+
+;; cell handling
+
+(define ($cell-car mem cell-ind) (ash (~ mem'cells cell-ind) -32))
+(define ($cell-cdr mem cell-ind) (logand (~ mem'cells cell-ind) #xffffffff))
+
+(define ($cell-set-car! mem cell-ind val)
+  (update! (~ mem'cells cell-ind) (^c (copy-bit-field c val 32 64))))
+(define ($cell-set-cdr! mem cell-ind val)
+  (update! (~ mem'cells cell-ind) (^c (copy-bit-field c val 0 32))))
+
+(define ($new-cell mem ca cd)
+  (rlet1 ind (~ mem 'freecell)
+    (when (= (cell-cdr ind) *INVALID*)
+      (error "Cell exhausted"))
+    (set! (~ mem 'freecell) (cell-cdr ind))
+    (set! (~ mem'cells ind) (logior (ash ca 32) cd))))
+
+(define ($new-atom mem plist)
+  ($new-cell mem *ATOM* plist))
+
+;; A cell can be a pair or an atom
+
+(define ($atom? mem cell-ind)
+  (= ($cell-car mem cell-ind) *ATOM*))
+(define ($pair? mem cell-ind)
+  (not ($atom? mem cell-ind)))
+
 
 ;; LISP 1.5 uses a specially marked pair as a symbol, whose car is a list
 ;; beginning with -1, followed by the symbol property list.  That worked
