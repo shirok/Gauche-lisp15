@@ -4,6 +4,7 @@
 
 (define-module LISP1.5.runtime
   (use gauche.uvector)
+  (use srfi-42)
   (export lisp-cons? lisp-symbol?
           symbol-name symbol-intern symbol-plist)
   )
@@ -25,6 +26,7 @@
 ;;    01xxxx....    Index to byte array
 ;;    10xxxx....    Immediate fixnum value (30bit signed int)
 ;;    11xxxx....    Index to native object array.
+;;                  (#xffffffff is reserved)
 ;;
 ;; Native object array has Gauche objects, and we store built-in primitives
 ;; and flonums in it.
@@ -42,7 +44,7 @@
    (freebyte :init-value 0)             ; beginning of free bytes
    ))
 
-(define-constant *ATOM* #xffffffff)
+(define-constant *ATOM* #xffffffff)     ; marker of atomic symbol
 (define-constant *NIL* 0)               ; reserve cell #0 for NIL
 
 (define (make-memory num-cells num-bytes)
@@ -64,15 +66,28 @@
 
 ;; Procedures with '$' takes and/or returns index to the memory
 
+(define-constant *CELL-PAGE* #x0000_0000)
+(define-constant *BYTE-PAGE* #x4000_0000)
+(define-constant *FIXNUM-PAGE* #x8000_0000)
+(define-constant *NATIVE-PAGE* #xc000_0000)
+(define-constant *MASK* (lognot #xc000_0000))
+
 ;; index classification
 (define ($index-type ind)
-  (cond [(< ind #x4000_0000) 'cell]
-        [(< ind #x8000_0000) 'bytes]
-        [(< ind #xc000_0000) 'fixnum]
+  (cond [(< ind *BYTE-PAGE*) 'cell]
+        [(< ind *FIXNUM-PAGE*) 'bytes]
+        [(< ind *NATIVE-PAGE*) 'fixnum]
         [else 'native]))
 
-;; cell handling
+(define ($new-fixnum mem n)                 ;n is Scheme integer
+  (logior n *FIXNUM-PAGE*))
+(define ($fixnum-value mem ind)             ;returns Scheme integer
+  (let1 v (logand ind *MASK*)
+    (if (> v #x2000_0000)
+      (- v #x4000_0000)
+      v)))
 
+;; cell handling.  cell-ind must be an index to the cell array.
 (define ($cell-car mem cell-ind) (ash (~ mem'cells cell-ind) -32))
 (define ($cell-cdr mem cell-ind) (logand (~ mem'cells cell-ind) #xffffffff))
 
@@ -83,21 +98,47 @@
 
 (define ($new-cell mem ca cd)
   (rlet1 ind (~ mem 'freecell)
-    (when (= (cell-cdr ind) *INVALID*)
+    (when (= ($cell-cdr mem ind) *ATOM*)
       (error "Cell exhausted"))
-    (set! (~ mem 'freecell) (cell-cdr ind))
+    (set! (~ mem 'freecell) ($cell-cdr mem ind))
     (set! (~ mem'cells ind) (logior (ash ca 32) cd))))
 
 (define ($new-atom mem plist)
   ($new-cell mem *ATOM* plist))
 
 ;; A cell can be a pair or an atom
-
 (define ($atom? mem cell-ind)
   (= ($cell-car mem cell-ind) *ATOM*))
 (define ($pair? mem cell-ind)
   (not ($atom? mem cell-ind)))
 
+;; Bytes area is used to store variable-length strings.  In LISP1.5, strings
+;; are stored as a linked list of "full word"s, where each full word is 36bit
+;; work that can hold up to 6 characters.   We use byte-addressable memory
+;; for the characters, and use one cell for a string header, whose car points
+;; to the byte area (character array) and whose cdr holds fixnum of character
+;; count.
+
+;; Allocate num-bytes from bytes area and returns its tagged index.
+(define ($new-bytes mem num-bytes) 
+  (unless (< (+ (~ mem'freebyte) num-bytes) (~ mem'num-bytes))
+    (error "Bytes exhausted."))
+  (rlet1 ind (logior (~ mem'freebyte) *BYTE-PAGE*)
+    (inc! (~ mem'freebyte) num-bytes)))
+
+(define ($put-bytes! mem ind str)       ;str is Scheme string
+  (let1 start (logand ind *MASK*)
+    (u8vector-copy! (~ mem'bytes) start (string->u8vector str))))
+
+(define ($get-bytes mem ind len)        ;returns Scheme string
+  (let1 start (logand ind *MASK*)
+    (u8vector->string (u8vector-copy (~ mem'bytes) start len))))
+
+(define ($new-string mem str)           ;str is Scheme string
+  (let* ([len (string-size str)]
+         [ind ($new-bytes mem len)])
+    ($put-bytes! mem ind str)
+    ($new-cell mem ind ($new-fixnum mem len))))
 
 ;; LISP 1.5 uses a specially marked pair as a symbol, whose car is a list
 ;; beginning with -1, followed by the symbol property list.  That worked
