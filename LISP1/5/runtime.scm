@@ -112,6 +112,11 @@
 (define ($pair? mem cell-ind)
   (not ($atom? mem cell-ind)))
 
+(define ($new-list mem . elts)     ;elts must be a Scheme list of LISP indexes
+  (if (null? elts)
+    *NIL*
+    ($new-cell mem (car elts) (apply $new-list mem (cdr elts)))))
+
 ;; Bytes area is used to store variable-length strings.  In LISP1.5, strings
 ;; are stored as a linked list of "full word"s, where each full word is 36bit
 ;; work that can hold up to 6 characters.   We use byte-addressable memory
@@ -139,6 +144,12 @@
          [ind ($new-bytes mem len)])
     ($put-bytes! mem ind str)
     ($new-cell mem ind ($new-fixnum mem len))))
+
+;; Symbol construction
+(define ($init-symbol mem sym plist) ;plist is a Scheme list of LISP indexes
+  ($cell-set-car! mem sym *ATOM*)
+  ($cell-set-cdr! mem sym (apply $new-list mem plist)))
+  
 
 ;; LISP 1.5 uses a specially marked pair as a symbol, whose car is a list
 ;; beginning with -1, followed by the symbol property list.  That worked
