@@ -6,8 +6,7 @@
   (use gauche.uvector)
   (use gauche.parameter)
   (use srfi-42)
-  (export lisp-cons? lisp-symbol?
-          symbol-name symbol-intern symbol-plist)
+  (export-all)                          ;for now
   )
 (select-module LISP1.5.runtime)
 
@@ -69,13 +68,14 @@
     (set! (~ cells i) (+ i 1)))
   (set! (~ cells (- num-cells 1)) *NIL*)
 
-  (make <memory>
-    :num-cells num-cells
-    :cells cells
-    :num-bytes num-bytes
-    :bytes bytes
-    :freecell *NUM-RESERVERD-CELLS*
-    :natives natives))
+  (rlet1 mem (make <memory>
+               :num-cells num-cells
+               :cells cells
+               :num-bytes num-bytes
+               :bytes bytes
+               :freecell *NUM-RESERVERD-CELLS*
+               :natives natives)
+    (init-predefined-symbols mem)))
 
 ;; Our memory
 (define the-mem (make-parameter #f))
@@ -86,7 +86,8 @@
 (define-constant *BYTE-PAGE* #x4000_0000)
 (define-constant *FIXNUM-PAGE* #x8000_0000)
 (define-constant *NATIVE-PAGE* #xc000_0000)
-(define-constant *MASK* (lognot #xc000_0000))
+(define-constant *PAGE-MASK* #xc000_0000)
+(define-constant *VALUE-MASK* (lognot *PAGE-MASK*))
 
 ;; index classification
 (define ($index-type ind)
@@ -98,12 +99,12 @@
 (define ($new-fixnum n)                 ;n is Scheme integer
   (logior n *FIXNUM-PAGE*))
 (define ($fixnum-value ind)             ;returns Scheme integer
-  (let1 v (logand ind *MASK*)
+  (let1 v (logand ind *VALUE-MASK*)
     (if (> v #x2000_0000)
       (- v #x4000_0000)
       v)))
 (define ($fixnum? ind)
-  (= (logand ind *MASK*) *FIXNUM-PAGE*))
+  (= (logand ind *PAGE-MASK*) *FIXNUM-PAGE*))
 
 ;; cell handling.  cell-ind must be an index to the cell array.
 (define ($cell-car cell-ind) (ash (~ (the-mem)'cells cell-ind) -32))
@@ -122,7 +123,7 @@
     (set! (~ (the-mem)'cells ind) (logior (ash ca 32) cd))))
 
 (define ($cell? ind)
-  (= (logand ind *MASK*) *CELL-PAGE*))
+  (= (logand ind *PAGE-MASK*) *CELL-PAGE*))
 
 ;; A cell can be a pair or an atom
 (define ($atom? ind)
@@ -132,10 +133,21 @@
   (and ($cell? ind)
        (not ($atom? ind))))
 
+;; let's define this here for we'll define list functions.
+(define ($null? ind)
+  (eqv? ind *NIL*))
+
 (define ($new-list . elts)     ;elts must be a Scheme list of LISP indexes
   (if (null? elts)
     *NIL*
     ($new-cell (car elts) (apply $new-list (cdr elts)))))
+
+(define ($get-prop plist key)
+  (cond [($null? plist) *NIL*]
+        [(eqv? ($cell-car plist) key) ($cell-car ($cell-cdr plist))]
+        [else ($get-prop ($cell-cdr ($cell-cdr plist)) key)]))
+       
+    
 
 ;; Bytes area is used to store variable-length strings.  In LISP1.5, strings
 ;; are stored as a linked list of "full word"s, where each full word is 36bit
@@ -152,15 +164,15 @@
     (inc! (~ (the-mem)'freebyte) num-bytes)))
 
 (define ($bytes? ind)
-  (= (logand ind *MASK*) *BYTE-PAGE*))
+  (= (logand ind *PAGE-MASK*) *BYTE-PAGE*))
 
 (define ($put-bytes! ind str)       ;str is Scheme string
-  (let1 start (logand ind *MASK*)
+  (let1 start (logand ind *VALUE-MASK*)
     (u8vector-copy! (~ (the-mem)'bytes) start (string->u8vector str))))
 
 (define ($get-bytes ind len)        ;returns Scheme string
-  (let1 start (logand ind *MASK*)
-    (u8vector->string (u8vector-copy (~ (the-mem)'bytes) start len))))
+  (let1 start (logand ind *VALUE-MASK*)
+    (u8vector->string (u8vector-copy (~ (the-mem)'bytes) start (+ start len)))))
 
 (define ($new-string str)           ;str is Scheme string
   (let* ([len (string-size str)]
@@ -172,6 +184,10 @@
   (and ($pair? ind)
        ($bytes? ($cell-car ind))))
 
+(define ($get-string ind)
+  (assume ($string? ind))
+  ($get-bytes ($cell-car ind) ($fixnum-value ($cell-cdr ind))))
+
 ;; Symbol construction
 
 ;; Initialize a symbol of index sym with NAME (Scheme string)
@@ -182,6 +198,7 @@
     ($cell-set-cdr! sym (apply $new-list *PNAME* name-str plist))
     (hash-table-put! (~ (the-mem)'obtable) name sym)))
 
+;; bootstrap - called from make-memory
 (define (init-predefined-symbols mem)
   (parameterize ((the-mem mem))
     ($init-symbol *NIL* "NIL" `(,*APVAL* ,*NIL*))
@@ -197,75 +214,25 @@
       (rlet1 sym ($new-cell *ATOM* *NIL*)
         ($init-symbol sym name '()))))
 
-;; LISP 1.5 uses a specially marked pair as a symbol, whose car is a list
-;; beginning with -1, followed by the symbol property list.  That worked
-;; -1 can't be a valid address pointing to a lisp object.  For us, we put
-;; #<undef> as a marker.  Cdr of the lisp symbol is Scheme symbol, for
-;; the simplicity.
+(define ($symbol-plist sym)
+  ($cell-cdr sym))
 
-(define (lisp-cons? obj) (and (pair? obj) (not (undefined? (car obj)))))
-(define (lisp-symbol? obj) (and (pair? obj) (undefined? (car obj))))
+(define ($symbol-pname sym)             ; returns Scheme string
+  ($get-string ($get-prop ($symbol-plist sym) *PNAME*)))
 
-;; NIL is an an end-of-list marker.  We need it before constructing Lisp list,
-;; but its contentes will be filled after we set up symbol stuff.
-(define NIL (list (undefined)))  ; placeholder for now.
+(define ($symbol-apval sym)
+  ($get-prop ($symbol-plist sym) *APVAL*))
 
-(define (lisp-null? obj) (eq? obj NIL))
+;;
+;; For ease of debugging
+;;
 
-;; Scheme symbol -> lisp symbol
-(define *obtable* (make-hash-table 'eq?))
-
-;; predefined symbol--bootstrap.  Symbol PNAME has circular reference.
-(define PNAME
-  (rlet1 pname (list* (undefined) #f "PNAME" NIL)
-    (set! (cadr pname) pname)
-    (hash-table-put! *obtable* 'PNAME pname)))
-
-(define (symbol-intern name)            ;NAME being Scheme symbol
-  (or (hash-table-get *obtable* name #f)
-      (rlet1 s (list* (undefined) PNAME (symbol->string name) NIL)
-        (hash-table-put! *obtable* name s))))
-
-(define (symbol-name obj)
-  (assume (lisp-symbol? obj))
-  (cdr obj))
-
-(define symbol-plist
-  (getter-with-setter
-   (^[obj]
-     (assume (lisp-symbol? obj))
-     (cdr obj))
-   (^[obj val]
-     (assume (lisp-symbol? obj))
-     (set! (cdr obj) val))))
-
-(define (symbol-plist-push! sym kind val)
-  (update! (symbol-plist sym) (^[v] (list* kind val v))))
-
-;; Some predefined marker symbols
-(define SUBR  (symbol-intern 'SUBR))
-(define FSUBR (symbol-intern 'FSUBR))
-(define EXPR  (symbol-intern 'EXPR))
-(define FEXPR (symbol-intern 'FEXPR))
-(define APVAL (symbol-intern 'APVAL))
-
-;; now we can make NIL a proper symbol
-(let ()
-  (set! (cdr NIL) (list* PNAME "NIL" APVAL NIL NIL))
-  (hash-table-put! *obtable* 'NIL NIL))
-
-;; Global values of symbols are stored in its plist.
-(define (csetq sym val) (symbol-plist-push! sym APVAL val))
-
-;; Predefined constants
-(define T
-  (rlet1 T (symbol-intern 'T)
-    (csetq T T)))
-
-(define F
-  (rlet1 F (symbol-intern 'F)
-    (csetq F F)))
-
-
-
-
+(define ($lisp->scheme ind)
+  (cond [($fixnum? ind) ($fixnum-value ind)]
+        [($atom? ind) (string->symbol ($symbol-pname ind))]
+        [($cell? ind)
+         (if ($null? ($cell-cdr ind))
+           (list ($lisp->scheme ($cell-car ind)))
+           (cons ($lisp->scheme ($cell-car ind))
+                 ($lisp->scheme ($cell-cdr ind))))]
+        [else "#<internal>"]))
