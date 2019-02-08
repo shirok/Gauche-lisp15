@@ -4,6 +4,7 @@
 
 (define-module LISP1.5.runtime
   (use gauche.uvector)
+  (use gauche.parameter)
   (use srfi-42)
   (export lisp-cons? lisp-symbol?
           symbol-name symbol-intern symbol-plist)
@@ -42,6 +43,8 @@
 
    (freecell :init-value 0)             ; chain of free cells
    (freebyte :init-value 0)             ; beginning of free bytes
+
+   (obtable :init-value (make-hash-table 'string=?)) ; name -> index
    ))
 
 (define-constant *ATOM* #xffffffff)     ; marker of atomic symbol
@@ -64,6 +67,9 @@
     :bytes bytes
     :natives natives))
 
+;; Our memory
+(define the-mem (make-parameter #f))
+
 ;; Procedures with '$' takes and/or returns index to the memory
 
 (define-constant *CELL-PAGE* #x0000_0000)
@@ -79,43 +85,50 @@
         [(< ind *NATIVE-PAGE*) 'fixnum]
         [else 'native]))
 
-(define ($new-fixnum mem n)                 ;n is Scheme integer
+(define ($new-fixnum n)                 ;n is Scheme integer
   (logior n *FIXNUM-PAGE*))
-(define ($fixnum-value mem ind)             ;returns Scheme integer
+(define ($fixnum-value ind)             ;returns Scheme integer
   (let1 v (logand ind *MASK*)
     (if (> v #x2000_0000)
       (- v #x4000_0000)
       v)))
+(define ($fixnum? ind)
+  (= (logand ind *MASK*) *FIXNUM-PAGE*))
 
 ;; cell handling.  cell-ind must be an index to the cell array.
-(define ($cell-car mem cell-ind) (ash (~ mem'cells cell-ind) -32))
-(define ($cell-cdr mem cell-ind) (logand (~ mem'cells cell-ind) #xffffffff))
+(define ($cell-car cell-ind) (ash (~ (the-mem)'cells cell-ind) -32))
+(define ($cell-cdr cell-ind) (logand (~ (the-mem)'cells cell-ind) #xffffffff))
 
-(define ($cell-set-car! mem cell-ind val)
-  (update! (~ mem'cells cell-ind) (^c (copy-bit-field c val 32 64))))
-(define ($cell-set-cdr! mem cell-ind val)
-  (update! (~ mem'cells cell-ind) (^c (copy-bit-field c val 0 32))))
+(define ($cell-set-car! cell-ind val)
+  (update! (~ (the-mem)'cells cell-ind) (^c (copy-bit-field c val 32 64))))
+(define ($cell-set-cdr! cell-ind val)
+  (update! (~ (the-mem)'cells cell-ind) (^c (copy-bit-field c val 0 32))))
 
-(define ($new-cell mem ca cd)
-  (rlet1 ind (~ mem 'freecell)
-    (when (= ($cell-cdr mem ind) *ATOM*)
+(define ($new-cell ca cd)
+  (rlet1 ind (~ (the-mem) 'freecell)
+    (when (= ($cell-cdr ind) *ATOM*)
       (error "Cell exhausted"))
-    (set! (~ mem 'freecell) ($cell-cdr mem ind))
-    (set! (~ mem'cells ind) (logior (ash ca 32) cd))))
+    (set! (~ (the-mem)'freecell) ($cell-cdr ind))
+    (set! (~ (the-mem)'cells ind) (logior (ash ca 32) cd))))
 
-(define ($new-atom mem plist)
-  ($new-cell mem *ATOM* plist))
+(define ($new-atom plist)
+  ($new-cell *ATOM* plist))
+
+(define ($cell? ind)
+  (= (logand ind *MASK*) *CELL-PAGE*))
 
 ;; A cell can be a pair or an atom
-(define ($atom? mem cell-ind)
-  (= ($cell-car mem cell-ind) *ATOM*))
-(define ($pair? mem cell-ind)
-  (not ($atom? mem cell-ind)))
+(define ($atom? ind)
+  (and ($cell? ind)
+       (= ($cell-car ind) *ATOM*)))
+(define ($pair? ind)
+  (and ($cell? ind)
+       (not ($atom? ind))))
 
-(define ($new-list mem . elts)     ;elts must be a Scheme list of LISP indexes
+(define ($new-list . elts)     ;elts must be a Scheme list of LISP indexes
   (if (null? elts)
     *NIL*
-    ($new-cell mem (car elts) (apply $new-list mem (cdr elts)))))
+    ($new-cell (car elts) (apply $new-list (cdr elts)))))
 
 ;; Bytes area is used to store variable-length strings.  In LISP1.5, strings
 ;; are stored as a linked list of "full word"s, where each full word is 36bit
@@ -125,30 +138,39 @@
 ;; count.
 
 ;; Allocate num-bytes from bytes area and returns its tagged index.
-(define ($new-bytes mem num-bytes) 
-  (unless (< (+ (~ mem'freebyte) num-bytes) (~ mem'num-bytes))
+(define ($new-bytes num-bytes) 
+  (unless (< (+ (~ (the-mem)'freebyte) num-bytes) (~ (the-mem)'num-bytes))
     (error "Bytes exhausted."))
-  (rlet1 ind (logior (~ mem'freebyte) *BYTE-PAGE*)
-    (inc! (~ mem'freebyte) num-bytes)))
+  (rlet1 ind (logior (~ (the-mem)'freebyte) *BYTE-PAGE*)
+    (inc! (~ (the-mem)'freebyte) num-bytes)))
 
-(define ($put-bytes! mem ind str)       ;str is Scheme string
+(define ($bytes? ind)
+  (= (logand ind *MASK*) *BYTE-PAGE*))
+
+(define ($put-bytes! ind str)       ;str is Scheme string
   (let1 start (logand ind *MASK*)
-    (u8vector-copy! (~ mem'bytes) start (string->u8vector str))))
+    (u8vector-copy! (~ (the-mem)'bytes) start (string->u8vector str))))
 
-(define ($get-bytes mem ind len)        ;returns Scheme string
+(define ($get-bytes ind len)        ;returns Scheme string
   (let1 start (logand ind *MASK*)
-    (u8vector->string (u8vector-copy (~ mem'bytes) start len))))
+    (u8vector->string (u8vector-copy (~ (the-mem)'bytes) start len))))
 
-(define ($new-string mem str)           ;str is Scheme string
+(define ($new-string str)           ;str is Scheme string
   (let* ([len (string-size str)]
-         [ind ($new-bytes mem len)])
-    ($put-bytes! mem ind str)
-    ($new-cell mem ind ($new-fixnum mem len))))
+         [ind ($new-bytes len)])
+    ($put-bytes! ind str)
+    ($new-cell ind ($new-fixnum len))))
+
+(define ($string? ind)
+  (and ($pair? ind)
+       ($bytes? ($cell-car ind))))
 
 ;; Symbol construction
-(define ($init-symbol mem sym plist) ;plist is a Scheme list of LISP indexes
-  ($cell-set-car! mem sym *ATOM*)
-  ($cell-set-cdr! mem sym (apply $new-list mem plist)))
+(define ($init-symbol sym plist) ;plist is a Scheme list of LISP indexes
+  ($cell-set-car! sym *ATOM*)
+  ($cell-set-cdr! sym (apply $new-list plist)))
+
+
   
 
 ;; LISP 1.5 uses a specially marked pair as a symbol, whose car is a list
