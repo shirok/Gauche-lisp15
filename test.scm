@@ -5,8 +5,8 @@
 (use gauche.test)
 (test-start "LISP1.5")
 
-(use LISP1.5.runtime)
-(test-module 'LISP1.5.runtime)
+(use LISP1.5.memory)
+(test-module 'LISP1.5.memory)
 
 (use LISP1.5.mexpr)
 (test-module 'LISP1.5.mexpr)

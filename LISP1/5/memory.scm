@@ -1,14 +1,14 @@
 ;;;
-;;;  LISP1.5 Runtime
+;;;  LISP1.5 Memory model
 ;;;
 
-(define-module LISP1.5.runtime
+(define-module LISP1.5.memory
   (use gauche.uvector)
   (use gauche.parameter)
   (use srfi-42)
   (export-all)                          ;for now
   )
-(select-module LISP1.5.runtime)
+(select-module LISP1.5.memory)
 
 ;; We don't really emulate IBM70x, but define a similar memory structure
 ;; so that we can get the feeling of those past days.
