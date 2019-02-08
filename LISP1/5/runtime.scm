@@ -41,14 +41,23 @@
 
    (natives :init-keyword :natives)     ; vector, auto extended
 
-   (freecell :init-value 0)             ; chain of free cells
+   (freecell :init-keyword :freecell)   ; chain of free cells
    (freebyte :init-value 0)             ; beginning of free bytes
 
    (obtable :init-value (make-hash-table 'string=?)) ; name -> index
    ))
 
 (define-constant *ATOM* #xffffffff)     ; marker of atomic symbol
-(define-constant *NIL* 0)               ; reserve cell #0 for NIL
+
+;; First several cells are reserved for important symbols.
+(define-constant *NIL* 0)
+(define-constant *PNAME* 1)
+(define-constant *APVAL* 2)
+(define-constant *EXPR* 3)
+(define-constant *FEXPR* 4)
+(define-constant *SUBR* 5)
+(define-constant *FSUBR* 6)
+(define-constant *NUM-RESERVERD-CELLS* 7)
 
 (define (make-memory num-cells num-bytes)
   (define cells (make-u64vector num-cells))
@@ -65,6 +74,7 @@
     :cells cells
     :num-bytes num-bytes
     :bytes bytes
+    :freecell *NUM-RESERVERD-CELLS*
     :natives natives))
 
 ;; Our memory
@@ -110,9 +120,6 @@
       (error "Cell exhausted"))
     (set! (~ (the-mem)'freecell) ($cell-cdr ind))
     (set! (~ (the-mem)'cells ind) (logior (ash ca 32) cd))))
-
-(define ($new-atom plist)
-  ($new-cell *ATOM* plist))
 
 (define ($cell? ind)
   (= (logand ind *MASK*) *CELL-PAGE*))
@@ -166,12 +173,29 @@
        ($bytes? ($cell-car ind))))
 
 ;; Symbol construction
-(define ($init-symbol sym plist) ;plist is a Scheme list of LISP indexes
-  ($cell-set-car! sym *ATOM*)
-  ($cell-set-cdr! sym (apply $new-list plist)))
 
+;; Initialize a symbol of index sym with NAME (Scheme string)
+;; and plist (Scheme list)
+(define ($init-symbol sym name plist)
+  (let1 name-str ($new-string name)
+    ($cell-set-car! sym *ATOM*)
+    ($cell-set-cdr! sym (apply $new-list *PNAME* name-str plist))
+    (hash-table-put! (~ (the-mem)'obtable) name sym)))
 
-  
+(define (init-predefined-symbols mem)
+  (parameterize ((the-mem mem))
+    ($init-symbol *NIL* "NIL" `(,*APVAL* ,*NIL*))
+    ($init-symbol *PNAME* "PNAME" '())
+    ($init-symbol *APVAL* "APVAL" '())
+    ($init-symbol *EXPR*  "EXPR" '())
+    ($init-symbol *FEXPR* "FEXPR" '())
+    ($init-symbol *SUBR*  "SUBR" '())
+    ($init-symbol *FSUBR* "FSUBR" '())))
+
+(define ($intern name)
+  (or (hash-table-get (~(the-mem)'obtable) name #f)
+      (rlet1 sym ($new-cell *ATOM* *NIL*)
+        ($init-symbol sym name '()))))
 
 ;; LISP 1.5 uses a specially marked pair as a symbol, whose car is a list
 ;; beginning with -1, followed by the symbol property list.  That worked
