@@ -2,6 +2,9 @@
 ;;; LISP1.5.mexpr - M-expression parser
 ;;;
 
+;; NB: We make this module independent from memory and runtime, so that
+;; it can be tested independently.
+
 (define-module LISP1.5.mexpr
   (use parser.peg)
   (use util.match)
