@@ -56,7 +56,9 @@
 (define-constant *FEXPR* 4)
 (define-constant *SUBR* 5)
 (define-constant *FSUBR* 6)
-(define-constant *NUM-RESERVERD-CELLS* 7)
+(define-constant *T* 7)
+(define-constant *F* 8)
+(define-constant *NUM-RESERVERD-CELLS* 9)
 
 (define (make-memory num-cells num-bytes)
   (define cells (make-u64vector num-cells))
@@ -87,7 +89,7 @@
 (define-constant *FIXNUM-PAGE* #x8000_0000)
 (define-constant *NATIVE-PAGE* #xc000_0000)
 (define-constant *PAGE-MASK* #xc000_0000)
-(define-constant *VALUE-MASK* (lognot *PAGE-MASK*))
+(define-constant *VALUE-MASK* (logand (lognot *PAGE-MASK*) #xffff_ffff))
 
 ;; index classification
 (define ($index-type ind)
@@ -97,7 +99,7 @@
         [else 'native]))
 
 (define ($new-fixnum n)                 ;n is Scheme integer
-  (logior n *FIXNUM-PAGE*))
+  (logior (logand n *VALUE-MASK*) *FIXNUM-PAGE*))
 (define ($fixnum-value ind)             ;returns Scheme integer
   (let1 v (logand ind *VALUE-MASK*)
     (if (> v #x2000_0000)
@@ -207,7 +209,9 @@
     ($init-symbol *EXPR*  "EXPR" '())
     ($init-symbol *FEXPR* "FEXPR" '())
     ($init-symbol *SUBR*  "SUBR" '())
-    ($init-symbol *FSUBR* "FSUBR" '())))
+    ($init-symbol *FSUBR* "FSUBR" '())
+    ($init-symbol *T*     "T"  `(,*APVAL* ,*T*))
+    ($init-symbol *F*     "F"  `(,*APVAL* ,*NIL*))))
 
 (define ($intern name)
   (or (hash-table-get (~(the-mem)'obtable) name #f)
@@ -236,3 +240,14 @@
            (cons ($lisp->scheme ($cell-car ind))
                  ($lisp->scheme ($cell-cdr ind))))]
         [else "#<internal>"]))
+
+(define ($scheme->lisp obj)
+  (cond [(fixnum? obj) ($new-fixnum obj)]
+        [(symbol? obj) ($intern (symbol->string obj))]
+        [(null? obj) *NIL*]
+        [(eq? obj #t) *T*]
+        [(eq? obj #f) *F*]
+        [(pair? obj) ($new-cell ($scheme->lisp (car obj))
+                                ($scheme->lisp (cdr obj)))]
+        [else (error "Can't convert ~s to LISP object" obj)]))
+

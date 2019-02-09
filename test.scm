@@ -3,10 +3,22 @@
 ;;;
 
 (use gauche.test)
+(use gauche.parameter)
 (test-start "LISP1.5")
 
 (use LISP1.5.memory)
 (test-module 'LISP1.5.memory)
+
+(parameterize ((the-mem (make-memory 1000 1000)))
+  (test* "memory" '(NIL (1 2 -3) PNAME T)
+         ($lisp->scheme ($new-list *NIL* 
+                                   ($new-list ($new-fixnum 1)
+                                              ($new-fixnum 2)
+                                              ($new-fixnum -3))
+                                   *PNAME* *T*)))
+  (test* "round-trip" '(A B (1 . -1) . C)
+         ($lisp->scheme ($scheme->lisp '(A B (1 . -1) . C))))
+  )
 
 (use LISP1.5.mexpr)
 (test-module 'LISP1.5.mexpr)
