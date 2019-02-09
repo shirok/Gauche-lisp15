@@ -35,6 +35,8 @@
 (test-m "cons[cons[A;B]; C]" '(cons (cons 'A 'B) 'C))
 (test-m "car[(A . (B1 . B2))]" '(car '(A . (B1 . B2))))
 
+(test-m "#comment\ncons[A;\nB #comment\n]" '(cons 'A 'B))
+
 (test-m "[eq[car[x];A] -> cons[B;cdr[x]]; T -> x]"
         '(cond ((eq (car x) 'A) (cons 'B (cdr x)))
                ('T x)))
@@ -52,7 +54,6 @@
                                  ('T 'F)))
                  ((equal (car x) (car y)) (equal (cdr x) (cdr y)))
                  ('T 'F))))
-
 
 (use LISP1.5)
 (test-module 'LISP1.5)

@@ -14,7 +14,11 @@
 ;;
 ;; Tokenizer
 ;;
-(define %ws ($skip-many ($. #[ \t\r\n])))
+
+;; NB: LISP1.5 mexpr doesn't have comment syntax.  We don't want to use ';',
+;; for it is used as an argument delimiter.  We use '#' instead.
+(define %ws ($skip-many ($or ($. #[ \t\r\n])
+                             ($seq ($. #\#) ($skip-many ($. #[^\n]))))))
 
 (define (make-word chars)
   (let1 s (list->string chars)
