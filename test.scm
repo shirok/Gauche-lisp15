@@ -11,11 +11,11 @@
 
 (parameterize ((the-mem (make-memory 1000 1000)))
   (test* "memory" '(NIL (1 2 -3) PNAME T)
-         ($lisp->scheme ($new-list *NIL* 
-                                   ($new-list ($new-fixnum 1)
-                                              ($new-fixnum 2)
-                                              ($new-fixnum -3))
-                                   *PNAME* *T*)))
+         ($lisp->scheme ($list *NIL* 
+                               ($list ($fixnum 1)
+                                      ($fixnum 2)
+                                      ($fixnum -3))
+                               *PNAME* *T*)))
   (test* "round-trip" '(A B (1 . -1) . C)
          ($lisp->scheme ($scheme->lisp '(A B (1 . -1) . C))))
   )

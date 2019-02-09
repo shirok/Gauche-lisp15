@@ -6,7 +6,16 @@
   (use gauche.uvector)
   (use gauche.parameter)
   (use srfi-42)
-  (export-all)                          ;for now
+  (export make-memory the-mem
+          *NIL* *PNAME* *APVAL* *EXPR* *FEXPR* *SUBR* *FSUBR* *T* *F*
+
+          $fixnum $fixnum-value $fixnum?
+          $cons $car $cdr $set-car! $set-cdr! $cell? $atom? $pair?
+          $null? $list $get-prop
+
+          $symbol $symbol-plist $symbol-pname $symbol-apval
+
+          $lisp->scheme $scheme->lisp)
   )
 (select-module LISP1.5.memory)
 
@@ -91,14 +100,11 @@
 (define-constant *PAGE-MASK* #xc000_0000)
 (define-constant *VALUE-MASK* (logand (lognot *PAGE-MASK*) #xffff_ffff))
 
-;; index classification
-(define ($index-type ind)
-  (cond [(< ind *BYTE-PAGE*) 'cell]
-        [(< ind *FIXNUM-PAGE*) 'bytes]
-        [(< ind *NATIVE-PAGE*) 'fixnum]
-        [else 'native]))
+;;
+;; Fixnum
+;;
 
-(define ($new-fixnum n)                 ;n is Scheme integer
+(define ($fixnum n)                 ;n is Scheme integer
   (logior (logand n *VALUE-MASK*) *FIXNUM-PAGE*))
 (define ($fixnum-value ind)             ;returns Scheme integer
   (let1 v (logand ind *VALUE-MASK*)
@@ -109,19 +115,19 @@
   (= (logand ind *PAGE-MASK*) *FIXNUM-PAGE*))
 
 ;; cell handling.  cell-ind must be an index to the cell array.
-(define ($cell-car cell-ind) (ash (~ (the-mem)'cells cell-ind) -32))
-(define ($cell-cdr cell-ind) (logand (~ (the-mem)'cells cell-ind) #xffffffff))
+(define ($car cell-ind) (ash (~ (the-mem)'cells cell-ind) -32))
+(define ($cdr cell-ind) (logand (~ (the-mem)'cells cell-ind) #xffffffff))
 
-(define ($cell-set-car! cell-ind val)
+(define ($set-car! cell-ind val)
   (update! (~ (the-mem)'cells cell-ind) (^c (copy-bit-field c val 32 64))))
-(define ($cell-set-cdr! cell-ind val)
+(define ($set-cdr! cell-ind val)
   (update! (~ (the-mem)'cells cell-ind) (^c (copy-bit-field c val 0 32))))
 
-(define ($new-cell ca cd)
+(define ($cons ca cd)
   (rlet1 ind (~ (the-mem) 'freecell)
-    (when (= ($cell-cdr ind) *ATOM*)
+    (when (= ($cdr ind) *ATOM*)
       (error "Cell exhausted"))
-    (set! (~ (the-mem)'freecell) ($cell-cdr ind))
+    (set! (~ (the-mem)'freecell) ($cdr ind))
     (set! (~ (the-mem)'cells ind) (logior (ash ca 32) cd))))
 
 (define ($cell? ind)
@@ -130,7 +136,7 @@
 ;; A cell can be a pair or an atom
 (define ($atom? ind)
   (and ($cell? ind)
-       (= ($cell-car ind) *ATOM*)))
+       (= ($car ind) *ATOM*)))
 (define ($pair? ind)
   (and ($cell? ind)
        (not ($atom? ind))))
@@ -139,18 +145,16 @@
 (define ($null? ind)
   (eqv? ind *NIL*))
 
-(define ($new-list . elts)     ;elts must be a Scheme list of LISP indexes
+(define ($list . elts)
   (if (null? elts)
     *NIL*
-    ($new-cell (car elts) (apply $new-list (cdr elts)))))
+    ($cons (car elts) (apply $list (cdr elts)))))
 
 (define ($get-prop plist key)
   (cond [($null? plist) *NIL*]
-        [(eqv? ($cell-car plist) key) ($cell-car ($cell-cdr plist))]
-        [else ($get-prop ($cell-cdr ($cell-cdr plist)) key)]))
+        [(eqv? ($car plist) key) ($car ($cdr plist))]
+        [else ($get-prop ($cdr ($cdr plist)) key)]))
        
-    
-
 ;; Bytes area is used to store variable-length strings.  In LISP1.5, strings
 ;; are stored as a linked list of "full word"s, where each full word is 36bit
 ;; work that can hold up to 6 characters.   We use byte-addressable memory
@@ -159,6 +163,8 @@
 ;; count.
 
 ;; Allocate num-bytes from bytes area and returns its tagged index.
+;; NB: bytes and strings are "under the hood" in LISP1.5---they can't be
+;; manipulated directly from LISP code.
 (define ($new-bytes num-bytes) 
   (unless (< (+ (~ (the-mem)'freebyte) num-bytes) (~ (the-mem)'num-bytes))
     (error "Bytes exhausted."))
@@ -180,15 +186,15 @@
   (let* ([len (string-size str)]
          [ind ($new-bytes len)])
     ($put-bytes! ind str)
-    ($new-cell ind ($new-fixnum len))))
+    ($cons ind ($fixnum len))))
 
 (define ($string? ind)
   (and ($pair? ind)
-       ($bytes? ($cell-car ind))))
+       ($bytes? ($car ind))))
 
 (define ($get-string ind)
   (assume ($string? ind))
-  ($get-bytes ($cell-car ind) ($fixnum-value ($cell-cdr ind))))
+  ($get-bytes ($car ind) ($fixnum-value ($cdr ind))))
 
 ;; Symbol construction
 
@@ -196,8 +202,8 @@
 ;; and plist (Scheme list)
 (define ($init-symbol sym name plist)
   (let1 name-str ($new-string name)
-    ($cell-set-car! sym *ATOM*)
-    ($cell-set-cdr! sym (apply $new-list *PNAME* name-str plist))
+    ($set-car! sym *ATOM*)
+    ($set-cdr! sym (apply $list *PNAME* name-str plist))
     (hash-table-put! (~ (the-mem)'obtable) name sym)))
 
 ;; bootstrap - called from make-memory
@@ -213,13 +219,13 @@
     ($init-symbol *T*     "T"  `(,*APVAL* ,*T*))
     ($init-symbol *F*     "F"  `(,*APVAL* ,*NIL*))))
 
-(define ($intern name)
+(define ($symbol name)
   (or (hash-table-get (~(the-mem)'obtable) name #f)
-      (rlet1 sym ($new-cell *ATOM* *NIL*)
+      (rlet1 sym ($cons *ATOM* *NIL*)
         ($init-symbol sym name '()))))
 
 (define ($symbol-plist sym)
-  ($cell-cdr sym))
+  ($cdr sym))
 
 (define ($symbol-pname sym)             ; returns Scheme string
   ($get-string ($get-prop ($symbol-plist sym) *PNAME*)))
@@ -235,19 +241,19 @@
   (cond [($fixnum? ind) ($fixnum-value ind)]
         [($atom? ind) (string->symbol ($symbol-pname ind))]
         [($cell? ind)
-         (if ($null? ($cell-cdr ind))
-           (list ($lisp->scheme ($cell-car ind)))
-           (cons ($lisp->scheme ($cell-car ind))
-                 ($lisp->scheme ($cell-cdr ind))))]
+         (if ($null? ($cdr ind))
+           (list ($lisp->scheme ($car ind)))
+           (cons ($lisp->scheme ($car ind))
+                 ($lisp->scheme ($cdr ind))))]
         [else "#<internal>"]))
 
 (define ($scheme->lisp obj)
-  (cond [(fixnum? obj) ($new-fixnum obj)]
-        [(symbol? obj) ($intern (symbol->string obj))]
+  (cond [(fixnum? obj) ($fixnum obj)]
+        [(symbol? obj) ($symbol (symbol->string obj))]
         [(null? obj) *NIL*]
         [(eq? obj #t) *T*]
         [(eq? obj #f) *F*]
-        [(pair? obj) ($new-cell ($scheme->lisp (car obj))
-                                ($scheme->lisp (cdr obj)))]
+        [(pair? obj) ($cons ($scheme->lisp (car obj))
+                            ($scheme->lisp (cdr obj)))]
         [else (error "Can't convert ~s to LISP object" obj)]))
 
