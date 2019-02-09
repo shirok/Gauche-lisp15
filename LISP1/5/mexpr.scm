@@ -8,7 +8,7 @@
 (define-module LISP1.5.mexpr
   (use parser.peg)
   (use util.match)
-  (export parse-mexpr))
+  (export parse-mexpr parse-mexprs))
 (select-module LISP1.5.mexpr)
 
 ;;
@@ -75,7 +75,8 @@
 (define %form
   ($lazy ($or ($do [x %datum] ($return `(quote ,x)))
               %conditional
-              %funcall-or-variable)))
+              %funcall-or-variable
+              ($eos))))
 
 (define %conditional-clause
   ($do [test %form]
@@ -124,3 +125,11 @@
 
 (define (parse-mexpr input)
   (values-ref (peg-run-parser %form (tokenize input)) 0))
+
+(define (parse-mexprs input)
+  (generator->lseq (peg-parser->generator %form (tokenize input))))
+
+(define-reader-directive 'm-expr
+  (^[sym port ctx] `(begin ,@(parse-mexprs port))))
+
+
