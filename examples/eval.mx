@@ -7,7 +7,7 @@
 #!m-expr
 
 # Primitives (Axioms):
-#   car, cdr, cons, eq, atom (and cond and quote, implcitly)
+#   car, cdr, cons, eq, atom (and cond and quote, implicitly)
 
 # Convenience functions
 

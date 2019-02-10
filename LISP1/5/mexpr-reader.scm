@@ -1,10 +1,10 @@
 ;;;
-;;; LISP1.5.mexpr-src
+;;; LISP1.5.mexpr-reader
 ;;;
 
 ;; This module allows you to load sources written in M-expression.
 ;;
-;;   (use LISP1.5.mexpr-src)
+;;   (use LISP1.5.mexpr-reader)
 ;;   #!m-expr
 ;;   ... code written in M-expression ...
 ;;
@@ -13,10 +13,10 @@
 ;; you want to use other modules such as LISP1.5.interp.
 
 
-(define-module LISP1.5.mexpr-src
+(define-module LISP1.5.mexpr-reader
   (use LISP1.5.mexpr)
   (export := begin))
-(select-module LISP1.5.mexpr-src)
+(select-module LISP1.5.mexpr-reader)
 
 ;; This definition is for loading m-expr source---the outermost 'begin'
 ;; and ':=' are dealt with 'load'.
@@ -27,4 +27,6 @@
   (^[sym port ctx]
     `(begin ,@(parse-mexprs port))))
 
+;; To embed M-expr within Scheme, use #,(m-expr "M-expr")
 
+(define-reader-ctor 'm-expr (^s (parse-mexpr s)))

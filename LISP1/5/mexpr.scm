@@ -9,6 +9,7 @@
   (use parser.peg)
   (use util.match)
   (use gauche.parameter)
+  (use gauche.unicode)
   (export parse-mexpr parse-mexprs
           trace-mexpr-parser))
 (select-module LISP1.5.mexpr)
@@ -16,6 +17,24 @@
 ;;
 ;; Tokenizer
 ;;
+
+;; API: tokenize INPUT
+;;   Returns an lseq of tokens. A token can be:
+;;     (number <number>)
+;;     (atom <name>)      ; atomic symbol; <name> is all uppercase
+;;     (ident <name>)     ; identifier; <name> is all uppercase
+;;     LAMBDA
+;;     LABEL
+;;     ->
+;;     #\[
+;;     #\]
+;;     #\(
+;;     #\)
+;;     #\.
+;;     #\;
+;;     #\=
+;;
+;;  Whitespaces and comments are consumed and discarded.
 
 ;; NB: LISP1.5 mexpr doesn't have comment syntax.  We don't want to use ';',
 ;; for it is used as an argument delimiter.  We use '#' instead.
@@ -27,14 +46,14 @@
     (if-let1 n (string->number s)
       `(number ,n)
       (cond [(#/^[A-Z][A-Z0-9]*$/ s) `(atom ,(string->symbol s))]
-            [(#/^[a-z][a-z0-9]*$/ s) `(identifier ,(string->symbol s))]
+            [(#/^[a-z][a-z0-9]*$/ s) `(ident ,(string->symbol (string-upcase s)))]
             [else (error "Invalid word: " s)]))))
 
 (define %word ($lift make-word ($many-chars #[0-9a-zA-Z] 1)))
 
 ;; A few reserved word
-(define %lambda ($seq ($."lambda") ($return 'lambda)))
-(define %label  ($seq ($."label") ($return 'label)))
+(define %lambda ($seq ($."lambda") ($return 'LAMBDA)))
+(define %label  ($seq ($."label") ($return 'LABEL)))
 (define %-> ($seq ($or ($."->") ($. #\u2192)) ($return '->))) ; right arrow
 
 (define %token
@@ -49,10 +68,17 @@
 ;; Parser
 ;;
 
+;; API: parse-mexpr INPUT
+;;   Parse single M-expr from INPUT and returns S-expr.
+;; API: parse-mexprs INPUT
+;;   Returns a lseq of parsed S-exprs from INPUT.
+;; API: trace-mexpr-parser
+;;   A parameter.  If true, parsers emits debug output.
+
 (define (snd x y) y)
 (define (tok-atom? x)       (match x [('atom x) x] [_ #f]))
 (define (tok-number? x)     (match x [('number x) x] [_ #f]))
-(define (tok-identifier? x) (match x [('identifier x) x] [_ #f]))
+(define (tok-identifier? x) (match x [('ident x) x] [_ #f]))
 
 (define %atom       ($satisfy tok-atom? 'atom snd))
 (define %number     ($satisfy tok-number? 'number snd))
@@ -75,7 +101,7 @@
                   ($return (cons x y))))))
 
 (define %form
-  ($lazy ($or ($do [x %datum] ($return `(quote ,x)))
+  ($lazy ($or ($do [x %datum] ($return `(QUOTE ,x)))
               %conditional
               %funcall-or-variable
               ($eos))))
@@ -90,12 +116,12 @@
   ($do [clauses ($between ($. #\[)
                           ($sep-by %conditional-clause ($. #\;))
                           ($. #\]))]
-       ($return `(cond ,@clauses))))
+       ($return `(COND ,@clauses))))
 
 (define %function ($lazy ($or %lambda-form %label-form %identifier)))
 
 (define %lambda-form
-  ($do [($satisfy (cut eq? 'lambda <>) 'lambda)]
+  ($do [($satisfy (cut eq? 'LAMBDA <>) 'lambda)]
        [($. #\[)]
        [args ($between ($. #\[)
                        ($sep-by %identifier ($. #\;))
@@ -103,16 +129,16 @@
        [($. #\;)]
        [body %form]
        [($. #\])]
-       ($return `(lambda ,args ,body))))
+       ($return `(LAMBDA ,args ,body))))
 
 (define %label-form
-  ($do [($satisfy (cut eq? 'label <>) 'label)]
+  ($do [($satisfy (cut eq? 'LABEL <>) 'label)]
        [($. #\[)]
        [id %identifier]
        [($. #\;)]
        [f %function]
        [($. #\])]
-       ($return `(label ,id ,f))))
+       ($return `(LABEL ,id ,f))))
 
 ;; NB: In the era of LISP1.5, M-expr is hand-converted into S-expr,
 ;; and a bunch of definitions are translated into one DEFINE form; e.g.
