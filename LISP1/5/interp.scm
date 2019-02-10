@@ -11,7 +11,8 @@
           (rename lisp:cdr cdr)
           (rename lisp:cons cons)
           (rename lisp:cond cond)
-          eq atom)
+          eq atom
+          (rename lisp:apply apply))
   )
 (select-module LISP1.5.interp)
 
@@ -28,3 +29,7 @@
        (if (or (eq? t 'NIL) (eq? t 'F))
          (lisp:cond . more)
          expr))]))
+
+;; Kludge - we need to shadow 'apply' to prevent forward-reference of 'apply'
+;; in the eval.mx being compiled with Gauche's 'apply'.
+(define lisp:apply #f)
