@@ -112,6 +112,19 @@
        [($. #\])]
        ($return `(label ,id ,f))))
 
+;; NB: In the era of LISP1.5, M-expr is hand-converted into S-expr,
+;; and a bunch of definitions are translated into one DEFINE form; e.g.
+;;
+;;   <a> = <b>
+;;   <c> = <d>
+;;
+;;  becomes:
+;;
+;;   (DEFINE ((<a> <b>) (<c> <d>))
+;;
+;; Since it's more convenient for us to process one definition at a time,
+;; we translate <a> = <b> to (:= <a> <b>).
+
 (define %funcall-or-variable
   ($do [head %function]
        [args ($optional ($between ($. #\[)
@@ -120,7 +133,7 @@
        [follow ($optional ($seq ($. #\=) %form))]
        ($return (let1 pre (if args (cons head args) head)
                   (if follow
-                    `(define ,pre ,follow)
+                    `(:= ,pre ,follow)
                     pre)))))
 
 (define (parse-mexpr input)
@@ -130,6 +143,6 @@
   (generator->lseq (peg-parser->generator %form (tokenize input))))
 
 (define-reader-directive 'm-expr
-  (^[sym port ctx] `(begin ,@(parse-mexprs port))))
+  (^[sym port ctx] `(prog ,@(parse-mexprs port))))
 
 
