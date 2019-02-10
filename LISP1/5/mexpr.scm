@@ -8,7 +8,9 @@
 (define-module LISP1.5.mexpr
   (use parser.peg)
   (use util.match)
-  (export parse-mexpr parse-mexprs))
+  (use gauche.parameter)
+  (export parse-mexpr parse-mexprs
+          trace-mexpr-parser))
 (select-module LISP1.5.mexpr)
 
 ;;
@@ -136,13 +138,17 @@
                     `(:= ,pre ,follow)
                     pre)))))
 
+(define trace-mexpr-parser (make-parameter #f))
+
+(define (%toplevel)
+  (if (trace-mexpr-parser)
+    ($debug "toplevel" %form)
+    %form))
+
+;; API
 (define (parse-mexpr input)
-  (values-ref (peg-run-parser %form (tokenize input)) 0))
+  (values-ref (peg-run-parser (%toplevel) (tokenize input)) 0))
 
+;; API
 (define (parse-mexprs input)
-  (generator->lseq (peg-parser->generator %form (tokenize input))))
-
-(define-reader-directive 'm-expr
-  (^[sym port ctx] `(prog ,@(parse-mexprs port))))
-
-
+  (generator->lseq (peg-parser->generator (%toplevel) (tokenize input))))

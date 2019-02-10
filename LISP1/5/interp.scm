@@ -6,13 +6,12 @@
 
 (define-module LISP1.5.interp
   (use LISP1.5.mexpr)
+  (extend LISP1.5.mexpr-src)            ;allow #!m-expr
   (export (rename lisp:car car)
           (rename lisp:cdr cdr)
           (rename lisp:cons cons)
           (rename lisp:cond cond)
-          eq atom
-          := prog  ; these are inserted by mexpr reader
-          )
+          eq atom)
   )
 (select-module LISP1.5.interp)
 
@@ -29,5 +28,3 @@
        (if (or (eq? t 'NIL) (eq? t 'F))
          (lisp:cond . more)
          expr))]))
-(define-syntax := define)
-(define-syntax prog begin)
