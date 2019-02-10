@@ -27,7 +27,7 @@
     [(_ (test expr) . more)
      (let ([t test])
        (if (or (eq? t 'NIL) (eq? t 'F))
-         (cond . more)
+         (lisp:cond . more)
          expr))]))
 (define-syntax := define)
 (define-syntax prog begin)
