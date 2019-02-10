@@ -2,7 +2,7 @@
 = LISP1.5 implementation on Gauche
 
 This is a fun project to implement LISP 1.5 as described in
-``LISP 1.5 Programmer's Manual''.  It's not a LISP 1.5 environment
+``LISP 1.5 Programmer's Manual''.  It's not a complete LISP 1.5 environment
 emulator; instead, it is to get a glimpse of how it is constructed.
 
 It comes with a few components.
@@ -21,8 +21,8 @@ An example can be found in link:examples/eval.mx[].
   No `quote` in M-expression.  Literal list can be written using parentheses,
   e.g. `(A B (C D . E))`, without a quote.
 - Function call is written as `fn[arg1;arg2;...]`
-- Conditional is `[test1 -> expr1; test2 -> expr2;...]`.  It works just like
-  `cond`.   Unicode arrow character `→` (U+2192) can be used in place of `->`.
+- Conditional is `[test1 \-> expr1; test2 \-> expr2;...]`.  It works just like
+  `cond`.   Unicode arrow character `->` (U+2192) can be used in place of `\->`.
 - Symbol `NIL` is used for list terminator.  Hence `cons[A;NIL]` yields
   `(A)`.
 - Literal function is written as `lambda[[arg;..];expr]`.
