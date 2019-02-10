@@ -1,0 +1,73 @@
+// -*- coding: utf-8 -*-
+= LISP1.5 implementation on Gauche
+
+This is a fun project to implement LISP 1.5 as described in
+``LISP 1.5 Programmer's Manual''.  It's not a LISP 1.5 environment
+emulator; instead, it is to get a glimpse of how it is constructed.
+
+It comes with a few components.
+
+== M-expression parser
+
+Back then, M-expression was for human to write and read programs on paper,
+but you had to manually translate it to S-expression then punch the cards.
+Now you can make the computer understand M-expression directly!
+
+An example can be found in link:examples/eval.mx[].
+
+=== M-expression syntax summary:
+
+- Identifiers are in all lowercase.  Literal symbols are in all uppercase.
+  No `quote` in M-expression.  Literal list can be written using parentheses,
+  e.g. `(A B (C D . E))`, without a quote.
+- Function call is written as `fn[arg1;arg2;...]`
+- Conditional is `[test1 -> expr1; test2 -> expr2;...]`.  It works just like
+  `cond`.   Unicode arrow character `→` (U+2192) can be used in place of `->`.
+- Symbol `NIL` is used for list terminator.  Hence `cons[A;NIL]` yields
+  `(A)`.
+- Literal function is written as `lambda[[arg;..];expr]`.
+- Local recursive function can be written as `label[name;expr]`, where
+  you can use `name` in the `expr` to refer to itself.
+- In toplevel, you can define a function by `name[arg;...] = expr`.
+
+=== Extension of M-expression:
+
+- A hash sign `#` to the end of line is a comment.
+
+=== Writing source in M-expression:
+
+You can write M-expression in Scheme source code using `#!m-expr` directive.
+You have to `use` one of LISP1.5 modules that provides the feature.
+
+[source,console]
+----
+;;
+;; Scheme comments
+;; 
+(use LISP1.5.interp)
+#!m-expr
+
+# M-expression source ...
+----
+
+
+
+
+== Miminal interpreter and a universal LISP function
+
+link:examples/eval.mx is the source of LISP `eval` described in the
+section 1.6 of the manual.  You can load it directly into `gosh`:
+
+[source,console]
+----
+$ gosh -I. -l examples/eval.mx
+----
+
+or
+
+[source,console]
+----
+gosh> ,l examples/eval.mx
+----
+
+
