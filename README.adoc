@@ -7,7 +7,7 @@ emulator; instead, it is to get a glimpse of how it is constructed.
 
 It comes with a few components.
 
-== M-expression parser
+== M-expression
 
 Back then, M-expression was for human to write and read programs on paper,
 but you had to manually translate it to S-expression then punch the cards.
@@ -15,7 +15,7 @@ Now you can make the computer understand M-expression directly!
 
 An example can be found in link:examples/eval.mx[].
 
-=== M-expression syntax summary:
+=== M-expression syntax summary
 
 - Identifiers are in all lowercase.  Literal symbols are in all uppercase.
   No `quote` in M-expression.  Literal list can be written using parentheses,
@@ -30,10 +30,48 @@ An example can be found in link:examples/eval.mx[].
   you can use `name` in the `expr` to refer to itself.
 - In toplevel, you can define a function by `name[arg;...] = expr`.
 
-=== Extension of M-expression:
+We also add this extension:
 
 - A hash sign `#` to the end of line is a comment.  We avoid `;`, for
   it is used as a separator.
+
+=== Calling M-expression parser
+
+Module `LISP1.5.mexpr` implements parsers.  A procedure
+`parse-mexpr` takes a string or an input port, and parses one M-expression
+and returns an S-expression.
+
+[source,console]
+----
+gosh> ,u LISP1.5.mexpr
+gosh> (parse-mexpr "cons[(A . B);C]")
+(CONS (QUOTE (A . B)) (QUOTE C))
+----
+
+Note that uppercase names and lists in M-expression are literals,
+hence QUOTEd once parsed.
+
+If the input can contain more than one M-expression, use `parse-mexprs`
+instead, which reads input up to EOF and returns an lseq of result
+S-expressions.
+
+If, for whaterver reason, you want to embed M-expression inside Scheme,
+use `LISP1.5.mexpr-reader` module.  It defines srfi-10 reader constructor
+`m-expr`, which takes M-expression in string:
+
+[source,console]
+----
+gosh> ,u LISP1.5.mexpr-reader
+gosh> '#,(m-expr "cons[X;Y]")
+(CONS (QUOTE X) (QUOTE Y))
+----
+
+(The `#,(m-expr "cons[X;Y]")` form is replaced to `(CONS (QUOTE X) (QUOTE Y))`
+by the reader.  Without the quote before it, REPL tries to evaluate
+the resulting S-expression, which would yield an error because
+Gauche doesn't know `CONS`, `QUOTE` etc.  Those primitives
+are defined in `LISP1.5.interp` module.  Read on.)
+
 
 === Writing source in M-expression:
 
