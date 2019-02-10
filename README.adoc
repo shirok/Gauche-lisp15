@@ -32,7 +32,8 @@ An example can be found in link:examples/eval.mx[].
 
 === Extension of M-expression:
 
-- A hash sign `#` to the end of line is a comment.
+- A hash sign `#` to the end of line is a comment.  We avoid `;`, for
+  it is used as a separator.
 
 === Writing source in M-expression:
 
@@ -55,7 +56,7 @@ You have to `use` one of LISP1.5 modules that provides the feature.
 
 == Miminal interpreter and a universal LISP function
 
-link:examples/eval.mx is the source of LISP `eval` described in the
+link:examples/eval.mx[] is the source of LISP `eval` described in the
 section 1.6 of the manual.  You can load it directly into `gosh`:
 
 [source,console]
@@ -70,4 +71,14 @@ or
 gosh> ,l examples/eval.mx
 ----
 
+Be aware that loading it overrides `car`, `cdr`, `caar`,
+`cadr`, `cdar`, `caddr`, `cadar`, `cons`, `append`, `member`, `assoc`,
+`eval`, `apply` and `cond`.  
 
+You can run
+
+[source,console]
+----
+gosh> (eval '(CAR (CONS (CDR (QUOTE (A . B))) (QUOTE C))) 'NIL)
+B
+----
