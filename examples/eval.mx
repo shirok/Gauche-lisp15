@@ -58,8 +58,6 @@ sub2[a;z] =
 
 # Evaluator
 
-evalquote[fn;args] = apply[fn;args;NIL]
-
 apply[fn;x;a] =
   [atom[fn] -> [eq[fn;CAR] -> caar[x];
                 eq[fn;CDR] -> cdar[x];
@@ -84,3 +82,5 @@ evcon[c;a] =
 evlis[m;a] =
   [null[m] -> NIL;
    T -> cons[eval[car[m];a];evlis[cdr[m];a]]]
+
+evalquote[fn;args] = apply[fn;args;NIL]
