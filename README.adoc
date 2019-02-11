@@ -25,9 +25,10 @@ An example can be found in link:examples/eval.mx[].
   `cond`.   Unicode arrow character `->` (U+2192) can be used in place of `\->`.
 - Symbol `NIL` is used for list terminator.  Hence `cons[A;NIL]` yields
   `(A)`.
-- Literal function is written as `lambda[[arg;..];expr]`.
-- Local recursive function can be written as `label[name;expr]`, where
-  you can use `name` in the `expr` to refer to itself.
+- Literal function is written as `lambda[[arg;..];expr]`.  This lambda form
+itself doesn't have a value---it must be called with arguments to take effect.
+- Local recursive function can be written as `label[name;lambda[[arg;...];expr]]`,
+where you can use `name` in the `expr` to refer to itself.
 - In toplevel, you can define a function by `name[arg;...] = expr`.
 
 We also add this extension:
@@ -104,7 +105,9 @@ We write out their code in link:examples/eval.mx[].
 
 What's interesting about it is that you only need a handful of
 functions and syntaxes to run the interpreter.  We define those
-minimal set of primitives in link:LISP1.5.axiom1.scm[].
+minimal set of primitives in link:LISP1/5/axiom1.scm[].
+It provides the definition of the following primitives:
+`CAR`, `CDR`, `CONS`, `ATOM`, `EQ`, `QUOTE`, `COND`, and `DEFINE`.
 
 To try the eval function, first `use` the axiom1 module, then
 load the `eval.mx` file.  Assuming you have
@@ -145,3 +148,41 @@ gosh> (EVAL '#,(m-expr "cons[car[(X . Y)];Z]") 'NIL)
 (X . Z)
 ----
 
+Following is a bit convoluted example.  It defines `append`
+as recursive funciton using `LABEL`, and calls it with
+two arguments, `(A B C)` and `(X Y Z)`:
+
+
+[source,lisp]
+----
+gosh> (EVAL '#,(m-expr "label[apnd;lambda[[xs;r];\
+                               [eq[xs;NIL] -> r;\
+                                T -> cons[car[xs];apnd[cdr[xs];r]]]]]\
+                        [(A B C);(X Y Z)]")
+            'NIL)
+(A B C X Y Z)
+----
+
+This interpreter only "knows" the minimal 7 primitives:
+`CAR`, `CDR`, `CONS`, `ATOM`, `EQ`, `QUOTE`, and `COND`.
+To refer to anything other than that, 
+you have to pass them as the environment argument.
+
+The following example reverses a list, using the
+definition of `NULL`, `APPEND` and `REVERSE` given to the environment:
+
+[source,lisp]
+----
+(EVAL '#,(m-expr "reverse[(A B C D E F G)]")
+      '((NULL . #,(m-expr "lambda[[x];[eq[x;NIL] -> T; T -> F]]"))
+        (APPEND . #,(m-expr "label[apnd;lambda[[xs;r];\
+                                [eq[xs;NIL] -> r;\
+                                 T -> cons[car[xs];apnd[cdr[xs];r]]]]]"))
+        (REVERSE . #,(m-expr "label[rev;lambda[[xs];\
+                                 [null[xs] -> NIL;\
+                                  T -> append[rev[cdr[xs]];cons[car[xs];NIL]]]]]"))
+        ))
+----
+
+Note that the function `NULL` is defined in `eval.mx` but not
+visible from the world of `EVAL`.

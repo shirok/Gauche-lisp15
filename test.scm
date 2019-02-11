@@ -68,11 +68,22 @@
 (test* "Loading eval.mx" #t
        (load "examples/eval.mx"))
 (test* "Calling APPLY" '(A B C X Y Z)
-       (APPLY '#,(m-expr "label[apnd;lambda[[xs;r];\n\
-                                 [eq[xs;NIL] -> r;\n\
+       (APPLY '#,(m-expr "label[apnd;lambda[[xs;r];\
+                                 [eq[xs;NIL] -> r;\
                                   T -> cons[car[xs];apnd[cdr[xs];r]]]]]")
               '((A B C) (X Y Z))
               'NIL))
+(test* "Calling EVAL" '(G F E D C B A)
+       (EVAL '#,(m-expr "reverse[(A B C D E F G)]")
+             '((NULL . #,(m-expr "lambda[[x];[eq[x;NIL] -> T; T -> F]]"))
+               (APPEND . #,(m-expr "label[apnd;lambda[[xs;r];\
+                                      [null[xs] -> r;\
+                                       T -> cons[car[xs];apnd[cdr[xs];r]]]]]"))
+               (REVERSE . #,(m-expr "label[rev;lambda[[xs];\
+                                      [null[xs] -> NIL;\
+                                       T -> append[rev[cdr[xs]];cons[car[xs];NIL]]]]]"))
+               )))
+
 
 ;; If you don't want `gosh' to exit with nonzero status even if
 ;; the test fails, pass #f to :exit-on-failure.
