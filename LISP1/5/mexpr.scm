@@ -140,18 +140,33 @@
        [($. #\])]
        ($return `(LABEL ,id ,f))))
 
-;; NB: In the era of LISP1.5, M-expr is hand-converted into S-expr,
-;; and a bunch of definitions are translated into one DEFINE form; e.g.
+;; We parse the definition form
 ;;
-;;   <a> = <b>
-;;   <c> = <d>
+;;   fn[arg;...] = expr
 ;;
-;;  becomes:
+;; as:
 ;;
-;;   (DEFINE ((<a> <b>) (<c> <d>))
+;;   (:= (FN ARG ...) EXPR)
 ;;
-;; Since it's more convenient for us to process one definition at a time,
-;; we translate <a> = <b> to (:= <a> <b>).
+;;
+;; In LISP1.5, toplevel definitions are done with DEFINE form, as this:
+;;
+;;   (DEFINE ((VAR EXPR) ...))
+;;
+;; So we have to collect those toplevel definitions:
+;;
+;;   (:= (FN1 ARG ...) EXPR1)
+;;   (:= (FN2 ARG ...) EXPR2)
+;;   (:= (FN3 ARG ...) EXPR3)
+;;
+;; and convert them into:
+;;
+;;   (DEFINE ((FN1 (LAMBDA (ARG ...) EXPR1)) 
+;;            (FN2 (LAMBDA (ARG ...) EXPR2)) 
+;;            (FN3 (LAMBDA (ARG ...) EXPR3))))
+;;
+;; This transformation is better be done in higher-level construct
+;; than in the parser.
 
 (define %funcall-or-variable
   ($do [head %function]
@@ -178,3 +193,29 @@
 ;; API
 (define (parse-mexprs input)
   (generator->lseq (peg-parser->generator (%toplevel) (tokenize input))))
+
+;; To embed M-expr within Scheme, use #,(m-expr "M-expr")
+(define-reader-ctor 'm-expr (^s (parse-mexpr s)))
+
+;; This allows source file to be written in M-expression
+;;
+;;   (use LISP1.5.mexpr)
+;;   #!m-expr
+;;   ... code written in M-expression ...
+;;
+;; The M-expressions after #!m-expr are collected and translated into
+;; a DEFINE form.
+;;
+;; NB: This module does not defines any LISP1.5 primitive syntax.
+;; To load m-expr that uses LISP1.5 syntax, you want to use other 
+;; modules such as LISP1.5.axiom.
+
+(define-reader-directive 'm-expr
+  (^[sym port ctx]
+    ;; Translate ((:= (fn arg ...) expr) ...) into
+    ;; (DEFINE ((fn (lambda (arg ...) expr)) ...))
+    (define (xlate-1 f)
+      (match f
+        [(':= (fn arg ...) expr) `(,fn (LAMBDA ,arg ,expr))]
+        [expr (error "Invalid definition: " expr)]))
+    `(DEFINE ,(map xlate-1 (parse-mexprs port)))))

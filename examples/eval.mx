@@ -2,8 +2,11 @@
 ;;; Section 1.6 - A Universal LISP Function
 ;;;
 
-(use LISP1.5.axiom)
-(use LISP1.5.mexpr-reader)
+(use LISP1.5.mexpr)
+
+;; NB: Before loading this file, you also need to have LISP1.5
+;; enviornment so that special forms (COND, QUOTE, DEFINE) are
+;; recognized.
 
 #!m-expr
 

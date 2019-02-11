@@ -7,7 +7,7 @@ emulator; instead, it is to get a glimpse of how it is constructed.
 
 It comes with a few components.
 
-== M-expression
+== M-expressions
 
 Back then, M-expression was for human to write and read programs on paper,
 but you had to manually translate it to S-expression then punch the cards.
@@ -35,6 +35,7 @@ We also add this extension:
 - A hash sign `#` to the end of line is a comment.  We avoid `;`, for
   it is used as a separator.
 
+
 === Calling M-expression parser
 
 Module `LISP1.5.mexpr` implements parsers.  A procedure
@@ -55,68 +56,92 @@ If the input can contain more than one M-expression, use `parse-mexprs`
 instead, which reads input up to EOF and returns an lseq of result
 S-expressions.
 
-If, for whaterver reason, you want to embed M-expression inside Scheme,
-use `LISP1.5.mexpr-reader` module.  It defines srfi-10 reader constructor
-`m-expr`, which takes M-expression in string:
-
-[source,console]
-----
-gosh> ,u LISP1.5.mexpr-reader
-gosh> '#,(m-expr "cons[X;Y]")
-(CONS (QUOTE X) (QUOTE Y))
-----
-
-(The `#,(m-expr "cons[X;Y]")` form is replaced to `(CONS (QUOTE X) (QUOTE Y))`
-by the reader.  Without the quote before it, REPL tries to evaluate
-the resulting S-expression, which would yield an error because
-Gauche doesn't know `CONS`, `QUOTE` etc.  Those primitives
-are defined in `LISP1.5.interp` module.  Read on.)
-
 
 === Writing source in M-expression:
 
 You can write M-expression in Scheme source code using `#!m-expr` directive.
-You have to `use` one of LISP1.5 modules that provides the feature.
 
 [source,console]
 ----
 ;;
 ;; Scheme comments
 ;; 
-(use LISP1.5.interp)
+(use LISP1.5.mexpr)
 #!m-expr
 
-# M-expression source ...
+# M-expression function definitions
+function1[arg;...] = expression1
+function2[arg;...] = expression2
+...
 ----
 
+The `#!m-expr` directive translates those M-expressions into
+a LISP1.5 `DEFINE` form:
+
+[source,lisp]
+----
+(DEFINE
+ ((FUNCTION1 (LAMBDA (ARG ...) EXPRESSION1))
+  (FUNCTION2 (LAMBDA (ARG ...) EXPRESSION2))
+  ...))
+----
+
+Note that you have definitions of `DEFINE` and other primitive
+LISP1.5 forms before loading the source file; The `LISP1.5.mexpr` module
+only handles parsing.
+
+We provide several implementations of those LISP1.5 primitives,
+which we'll show you in the following chapters.
 
 
+== Minimal system and a universal LISP function
 
-== Miminal interpreter and a universal LISP function
+Section 1.6 of "LISP 1.5 Programmier's Manual" is one of the pinnacles
+of the document.  They show how to implement Lisp interpreter
+on top of Lisp systems.  They call it a "Universal LISP function".
 
-link:examples/eval.mx[] is the source of LISP `eval` described in the
-section 1.6 of the manual.  You can load it directly into `gosh`:
+We write out their code in link:examples/eval.mx[].
+
+What's interesting about it is that you only need a handful of
+functions and syntaxes to run the interpreter.  We define those
+minimal set of primitives in link:LISP1.5.axiom1.scm[].
+
+To try the eval function, first `use` the axiom1 module, then
+load the `eval.mx` file.  Assuming you have
+load path set to the top directory of LISP1.5 source,
+you can say the following in the gosh REPL:
 
 [source,console]
 ----
-$ gosh -I. -l examples/eval.mx
-----
-
-or
-
-[source,console]
-----
+gosh> ,u LISP1.5.axiom1
 gosh> ,l examples/eval.mx
+#t
 ----
 
-Be aware that loading it overrides `car`, `cdr`, `caar`,
-`cadr`, `cdar`, `caddr`, `cadar`, `cons`, `append`, `member`, `assoc`,
-`eval`, `apply` and `cond`.  
-
-You can run
+Or, you can start gosh with loading necessary modules
+(this assumes you're in the top directory of LISP1.5 source):
 
 [source,console]
 ----
-gosh> (eval '(CAR (CONS (CDR (QUOTE (A . B))) (QUOTE C))) 'NIL)
-B
+$ gosh -I. -u LISP1.5.axiom1 -l examples/eval.mx
 ----
+
+On the gosh prompt, you can call `EVAL`.  The first argument
+is the S-expression to evaluate, and the second argument
+is the environment (assoc list of symbols and values):
+
+[source,lisp]
+----
+gosh> (EVAL '(CONS (CAR (QUOTE (X . Y))) (QUOTE Z)) 'NIL)
+(X . Z)
+----
+
+If you prefer, you can write M-expressions using
+read-time constructor `#,(m-expr "...")`:
+
+[source,lisp]
+----
+gosh> (EVAL '#,(m-expr "cons[car[(X . Y)];Z]") 'NIL)
+(X . Z)
+----
+

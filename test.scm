@@ -8,8 +8,8 @@
 
 (test-section "Basic modules")
 
-(use LISP1.5.axiom)
-(test-module 'LISP1.5.axiom)
+(use LISP1.5.axiom1)
+(test-module 'LISP1.5.axiom1)
 
 (use LISP1.5.memory)
 (test-module 'LISP1.5.memory)
