@@ -6,6 +6,11 @@
 (use gauche.parameter)
 (test-start "LISP1.5")
 
+(test-section "Basic modules")
+
+(use LISP1.5.axiom)
+(test-module 'LISP1.5.axiom)
+
 (use LISP1.5.memory)
 (test-module 'LISP1.5.memory)
 
@@ -26,37 +31,43 @@
 (define (test-m mexpr expected)
   (test* mexpr expected (parse-mexpr mexpr)))
 
-(test-m "123" ''123)
-(test-m "ABC123" ''ABC123)
-(test-m "blurb" 'blurb)
-(test-m "list[]" '(list))
-(test-m "cons[A;B]" '(cons 'A 'B))
-(test-m "cons[(A . B);C]" '(cons '(A . B) 'C))
-(test-m "cons[cons[A;B]; C]" '(cons (cons 'A 'B) 'C))
-(test-m "car[(A . (B1 . B2))]" '(car '(A . (B1 . B2))))
+(test-m "123" '(QUOTE 123))
+(test-m "ABC123" '(QUOTE ABC123))
+(test-m "blurb" 'BLURB)
+(test-m "list[]" '(LIST))
+(test-m "cons[A;B]" '(CONS (QUOTE A) (QUOTE B)))
+(test-m "cons[(A . B);C]" '(CONS (QUOTE (A . B)) (QUOTE C)))
+(test-m "cons[cons[A;B]; C]" '(CONS (CONS (QUOTE A) (QUOTE B)) (QUOTE C)))
+(test-m "car[(A . (B1 . B2))]" '(CAR (QUOTE (A . (B1 . B2)))))
 
-(test-m "#comment\ncons[A;\nB #comment\n]" '(cons 'A 'B))
+(test-m "#comment\ncons[A;\nB #comment\n]" '(CONS (QUOTE A) (QUOTE B)))
 
 (test-m "[eq[car[x];A] -> cons[B;cdr[x]]; T -> x]"
-        '(cond ((eq (car x) 'A) (cons 'B (cdr x)))
-               ('T x)))
+        '(COND ((EQ (CAR X) (QUOTE A)) (CONS (QUOTE B) (CDR X)))
+               ((QUOTE T) X)))
 
 (test-m "label[ff;lambda[[x];[atom[x]->x; T->ff[car[x]]]]]"
-        '(label ff (lambda (x)
-                     (cond ((atom x) x)
-                           ('T (ff (car x)))))))
+        '(LABEL FF (LAMBDA (X)
+                     (COND ((ATOM X) X)
+                           ((QUOTE T) (FF (CAR X)))))))
 
 (test-m "equal[x;y] = [atom[x] -> [atom[y] -> eq[x;y]; T -> F];\
                       equal[car[x]; car[y]] -> equal[cdr[x]; cdr[y]];\
                       T -> F]"
-        '(define (equal x y)
-           (cond ((atom x) (cond ((atom y) (eq x y))
-                                 ('T 'F)))
-                 ((equal (car x) (car y)) (equal (cdr x) (cdr y)))
-                 ('T 'F))))
+        '(:= (EQUAL X Y)
+             (COND ((ATOM X) (COND ((ATOM Y) (EQ X Y))
+                                   ((QUOTE T) (QUOTE F))))
+                   ((EQUAL (CAR X) (CAR Y)) (EQUAL (CDR X) (CDR Y)))
+                   ((QUOTE T) (QUOTE F)))))
 
 (use LISP1.5)
 (test-module 'LISP1.5)
+
+(test-section "Eval")
+
+(test* "Loading eval.mx" #t
+       (load "examples/eval.mx"))
+
 
 ;; If you don't want `gosh' to exit with nonzero status even if
 ;; the test fails, pass #f to :exit-on-failure.

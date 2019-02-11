@@ -1,15 +1,10 @@
 ;;;
-;;;  Interpret LISP1.5
+;;;  Miminal primitives to run EVAL
 ;;;
 
-;; Miminum interpreter to run "universal lisp function"
-
-(define-module LISP1.5.interp
-  (use LISP1.5.mexpr)
-  (extend LISP1.5.mexpr-reader)  ;allow #!m-expr and #,(m-expr "...")
-  (export CAR CDR CONS COND EQ ATOM QUOTE)
-  )
-(select-module LISP1.5.interp)
+(define-module LISP1.5.axiom
+  (export CAR CDR CONS COND EQ ATOM QUOTE))
+(select-module LISP1.5.axiom)
 
 (define (CAR x) (if (null? (car x)) 'NIL (car x)))
 (define (CDR x) (if (null? (cdr x)) 'NIL (cdr x)))
