@@ -67,7 +67,12 @@
 
 (test* "Loading eval.mx" #t
        (load "examples/eval.mx"))
-
+(test* "Calling APPLY" '(A B C X Y Z)
+       (APPLY '#,(m-expr "label[apnd;lambda[[xs;r];\n\
+                                 [eq[xs;NIL] -> r;\n\
+                                  T -> cons[car[xs];apnd[cdr[xs];r]]]]]")
+              '((A B C) (X Y Z))
+              'NIL))
 
 ;; If you don't want `gosh' to exit with nonzero status even if
 ;; the test fails, pass #f to :exit-on-failure.
