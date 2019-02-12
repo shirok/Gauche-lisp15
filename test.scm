@@ -4,12 +4,13 @@
 
 (use gauche.test)
 (use gauche.parameter)
+(use file.util)
 (test-start "LISP1.5")
 
 (test-section "Basic modules")
 
-(use LISP1.5.axiom1)
-(test-module 'LISP1.5.axiom1)
+(use LISP1.5.axioms)
+(test-module 'LISP1.5.axioms)
 
 (use LISP1.5.memory)
 (test-module 'LISP1.5.memory)
@@ -84,11 +85,6 @@
                                        T -> append[reverse[cdr[xs]];cons[car[xs];NIL]]]]"))
                )))
 
-
 ;; If you don't want `gosh' to exit with nonzero status even if
 ;; the test fails, pass #f to :exit-on-failure.
 (test-end :exit-on-failure #t)
-
-
-
-

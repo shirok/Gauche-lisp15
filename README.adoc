@@ -106,18 +106,18 @@ We write out their code in link:examples/eval.mx[].
 
 What's interesting about it is that you only need a handful of
 functions and syntaxes to run the interpreter.  We define those
-minimal set of primitives in link:LISP1/5/axiom1.scm[].
+minimal set of primitives in link:LISP1/5/axioms.scm[].
 It provides the definition of the following primitives:
 `CAR`, `CDR`, `CONS`, `ATOM`, `EQ`, `QUOTE`, `COND`, and `DEFINE`.
 
-To try the eval function, first `use` the axiom1 module, then
+To try the eval function, first `use` the axioms module, then
 load the `eval.mx` file.  Assuming you have
 load path set to the top directory of LISP1.5 source,
 you can say the following in the gosh REPL:
 
 [source,console]
 ----
-gosh> ,u LISP1.5.axiom1
+gosh> ,u LISP1.5.axioms
 gosh> ,l examples/eval.mx
 #t
 ----
@@ -127,7 +127,7 @@ Or, you can start gosh with loading necessary modules
 
 [source,console]
 ----
-$ gosh -I. -u LISP1.5.axiom1 -l examples/eval.mx
+$ gosh -I. -u LISP1.5.axioms -l examples/eval.mx
 ----
 
 On the gosh prompt, you can call `EVAL`.  The first argument
@@ -164,7 +164,7 @@ gosh> (EVAL '#,(m-expr "label[append;lambda[[xs;r];\
 (A B C X Y Z)
 ----
 
-This interpreter only "knows" the minimal 7 primitives:
+This interpreter only _knows_ the minimal 7 primitives:
 `CAR`, `CDR`, `CONS`, `ATOM`, `EQ`, `QUOTE`, and `COND`.
 To refer to anything other than that, 
 you have to pass them as the environment argument.
@@ -199,7 +199,7 @@ like the following:
 Stack Trace:
 _______________________________________
   0  (car x)
-        at "./LISP1/5/axiom1.scm":9
+        at "./LISP1/5/axioms.scm":9
   1  (CAR X)
         [unknown location]
   2  (CAAR A)
@@ -225,7 +225,7 @@ required primitives to interpret functions in `eval.mx`, you can use
 our `EVAL` to evaluate `eval.mx` to run `EVAL` on top of 
 `EVAL`--now you're running a metacircular interpreter!
 
-You might have noticed though, that `axiom1.scm` provides `DEFINE`,
+You might have noticed though, that `axioms.scm` provides `DEFINE`,
 which is missing in `eval.mx`.  In our context of discussing
 metacircular interpreter, `DEFINE` appears as a result of
 parsing M-expression definitions, and should be understood
@@ -248,14 +248,14 @@ $ gosh tools/axiom-env.scm examples/eval.mx
 ----
 
 It reads `eval.mx` and prints the definitions in an alist.  Copy the output,
-then start `gosh` again, read `axiom1` and load `eval.mx`, and evaluate
+then start `gosh` again, read `axioms` and load `eval.mx`, and evaluate
 the `EVAL` expression, passing the copied alist as the environment
 (don't forget the quote before the alist!):
 
 
 [source, lisp]
 ----
-gosh> ,u LISP1.5.axiom1
+gosh> ,u LISP1.5.axioms
 gosh> ,l examples/eval.mx
 #t
 gosh> (EVAL '(EVAL (QUOTE (CAR (QUOTE (X . Y)))) (QUOTE NIL))
@@ -263,7 +263,7 @@ gosh> (EVAL '(EVAL (QUOTE (CAR (QUOTE (X . Y)))) (QUOTE NIL))
 X
 ----
 
-The result `X` is the result of `(QUOTE (CAR (QUOTE (X . Y))))`, computed
+The result `X` is the result of `(CAR (QUOTE (X . Y)))`, computed
 by the `EVAL` function implemented in LISP1.5, not the underlying Gauche.
 
 If it is not obvious, try it with slightly different environment.
@@ -292,4 +292,12 @@ Then, the inner `EVAL` understands `KAR` instead of `CAR`:
       '...<<paste the edited environment alist>>...)
  => X
 ----
+
+
+=== Global environment
+
+The universal EVAL function above has only a _local_ environment,
+passed to the second argument.　It is still turing complete, but
+it's so inconvenient.
+
 

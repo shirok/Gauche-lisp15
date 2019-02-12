@@ -2,9 +2,9 @@
 ;;;  Miminal primitives to run EVAL
 ;;;
 
-(define-module LISP1.5.axiom1
+(define-module LISP1.5.axioms
   (export CAR CDR CONS COND EQ ATOM QUOTE DEFINE))
-(select-module LISP1.5.axiom1)
+(select-module LISP1.5.axioms)
 
 (define (CAR x) (if (null? (car x)) 'NIL (car x)))
 (define (CDR x) (if (null? (cdr x)) 'NIL (cdr x)))
@@ -21,6 +21,9 @@
        (if (or (eq? t 'NIL) (eq? t 'F))
          (COND . more)
          expr))]))
+
+;; DEFINE is not exactly an axiom, but more like a directive to set up
+;; the toplevel environment.
 (define-syntax DEFINE
   (syntax-rules (LAMBDA)
     [(_ ((var (LAMBDA args expr)) ...))
