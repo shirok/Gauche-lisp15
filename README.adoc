@@ -6,7 +6,7 @@ This is a fun project to implement LISP 1.5 as described in
 "LISP 1.5 Programmer's Manual".  It's not a complete LISP 1.5 environment
 emulator; instead, it is to get a glimpse of how it is constructed.
 
-It comes with a few components.
+:toc:
 
 == M-expressions
 
@@ -49,10 +49,10 @@ gosh> (parse-mexpr "cons[(A . B);C]")
 (CONS (QUOTE (A . B)) (QUOTE C))
 ----
 
-Note that uppercase names and lists in M-expression are literals,
-hence QUOTEd once parsed.
+Uppercase names and lists in M-expression are literals,
+hence they are QUOTE-d once parsed.
 
-If the input can contain more than one M-expression, use `parse-mexprs`
+If the input may contain more than one M-expression, use `parse-mexprs`
 instead, which reads input up to EOF and returns an lseq of result
 S-expressions.
 
@@ -156,9 +156,9 @@ two arguments, `(A B C)` and `(X Y Z)`:
 
 [source,lisp]
 ----
-gosh> (EVAL '#,(m-expr "label[apnd;lambda[[xs;r];\
+gosh> (EVAL '#,(m-expr "label[append;lambda[[xs;r];\
                                [eq[xs;NIL] -> r;\
-                                T -> cons[car[xs];apnd[cdr[xs];r]]]]]\
+                                T -> cons[car[xs];append[cdr[xs];r]]]]]\
                         [(A B C);(X Y Z)]")
             'NIL)
 (A B C X Y Z)
