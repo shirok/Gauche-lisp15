@@ -148,7 +148,7 @@ gosh> (EVAL '#,(m-expr "cons[car[(X . Y)];Z]") 'NIL)
 (X . Z)
 ----
 
-Following is a bit convoluted example.  It defines `append`
+Following is a bit more convoluted example.  It defines `append`
 as recursive funciton using `LABEL`, and calls it with
 two arguments, `(A B C)` and `(X Y Z)`:
 
@@ -173,16 +173,122 @@ definition of `NULL`, `APPEND` and `REVERSE` given to the environment:
 
 [source,lisp]
 ----
-(EVAL '#,(m-expr "reverse[(A B C D E F G)]")
-      '((NULL . #,(m-expr "lambda[[x];[eq[x;NIL] -> T; T -> F]]"))
-        (APPEND . #,(m-expr "label[apnd;lambda[[xs;r];\
-                                [eq[xs;NIL] -> r;\
-                                 T -> cons[car[xs];apnd[cdr[xs];r]]]]]"))
-        (REVERSE . #,(m-expr "label[rev;lambda[[xs];\
-                                 [null[xs] -> NIL;\
-                                  T -> append[rev[cdr[xs]];cons[car[xs];NIL]]]]]"))
-        ))
+gosh> (EVAL '#,(m-expr "reverse[(A B C D E F G)]")
+            '((NULL . #,(m-expr "lambda[[x];[eq[x;NIL] -> T; T -> F]]"))
+              (APPEND . #,(m-expr "lambda[[xs;r];\
+                                     [eq[xs;NIL] -> r;\
+                                      T -> cons[car[xs];append[cdr[xs];r]]]]"))
+              (REVERSE . #,(m-expr "lambda[[xs];\
+                                      [null[xs] -> NIL;\
+                                       T -> append[reverse[cdr[xs]];cons[car[xs];NIL]]]]"))
+             ))
+(G F D C B A)
 ----
 
 Note that the function `NULL` is defined in `eval.mx` but not
 visible from the world of `EVAL`.
+
+Hint: When you refer to an identifier that's neither one of the built-in
+primitive nor the one given in the environment, you'll get an error
+like the following:
+
+[source]
+----
+*** ERROR: pair required, but got NIL
+Stack Trace:
+_______________________________________
+  0  (car x)
+        at "./LISP1/5/axiom1.scm":9
+  1  (CAR X)
+        [unknown location]
+  2  (CAAR A)
+        [unknown location]
+  3  (EQUAL (CAAR A) X)
+        [unknown location]
+  4  (ASSOC E A)
+        [unknown location]
+  5  (EVAL FN A)
+        [unknown location]
+...
+----
+
+The code searches the environment alist by `ASSOC`, hits the end of
+the alist without finding it and complains.  Remember, we have minimal
+interpreter and there's no fancy error handling mechanism!
+
+
+== Going Metacircular
+
+Since the universal LISP function defined in `eval.mx` understands
+required primitives to interpret functions in `eval.mx`, you can use
+our `EVAL` to evaluate `eval.mx` to run `EVAL` on top of 
+`EVAL`---now you're running metacircular interpreter!
+
+You might have noticed though, that `axiom1.scm` provides `DEFINE`,
+which is missing in `eval.mx`.  In our context of discussing
+metacircular interpreter, `DEFINE` appears as a result of
+parsing M-expression definitions, and should be understood
+as a meta-language to direct the set-up, rather than an essential
+part of the language (one way to think of it is that if other primitives
+are `C` built-ins then `DEFINE` is `#pragma` or `Makefile`---they belong
+to slightly different layer.)
+
+Of course, it is more convenient to include `DEFINE` in the core language,
+and we'll deal with it later.  For now, let's stick to the primitives
+excluding `DEFINE`.
+
+In order to run `EVAL` inside `EVAL`, we need to prepare the definitions
+in `eval.mx` as the environment alist passed to outer `EVAL`.
+Run the following command in the toplevel source directory:
+
+[source, console]
+----
+$ gosh tools/axiom-env.scm examples/eval.mx
+----
+
+It reads `eval.mx` and prints the definitions in an alist.  Copy the output,
+then start `gosh` again, read `axiom1` and load `eval.mx`, and evaluate
+the `EVAL` expression, passing the copied alist as the environment
+(don't forget the quote before the alist!):
+
+
+[source, lisp]
+----
+gosh> ,u LISP1.5.axiom1
+gosh> ,l examples/eval.mx
+#t
+gosh> (EVAL '(EVAL (QUOTE (CAR (QUOTE (X . Y)))) (QUOTE NIL))
+            '...<<here, copy & paste the output of axiom-env.scm>>)
+X
+----
+
+The result `X` is the result of `(QUOTE (CAR (QUOTE (X . Y))))`, computed
+by the `EVAL` function implemented in LISP1.5, not the underlying Gauche.
+
+If it is not obvious, try it with slightly different environment.
+For example, edit the output of `axiom-env` so that it recognizes
+`KAR` instead of `CAR` as the primitive:
+
+[source, lisp]
+----
+ (APPLY
+  LAMBDA
+  (FN X A)
+  (COND
+   ((ATOM FN)
+    (COND ((EQ FN (QUOTE KAR)) (CAAR X)) ((EQ FN (QUOTE CDR)) (CDAR X))
+                         ^^^
+----
+
+(It is the only place you need to edit; other `CAR` in the environment
+are recognized by the base `EVAL` so shouldn't be touched.)
+
+Then, the inner `EVAL` understands `KAR` instead of `CAR`:
+
+[source, lisp]
+----
+(EVAL '(EVAL (QUOTE (KAR (QUOTE (X . Y)))) (QUOTE NIL))
+      '...<<paste the edited environment alist>>...)
+ => X
+----
+
