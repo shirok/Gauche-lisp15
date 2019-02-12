@@ -76,12 +76,12 @@
 (test* "Calling EVAL" '(G F E D C B A)
        (EVAL '#,(m-expr "reverse[(A B C D E F G)]")
              '((NULL . #,(m-expr "lambda[[x];[eq[x;NIL] -> T; T -> F]]"))
-               (APPEND . #,(m-expr "label[apnd;lambda[[xs;r];\
+               (APPEND . #,(m-expr "lambda[[xs;r];\
                                       [null[xs] -> r;\
-                                       T -> cons[car[xs];apnd[cdr[xs];r]]]]]"))
-               (REVERSE . #,(m-expr "label[rev;lambda[[xs];\
+                                       T -> cons[car[xs];append[cdr[xs];r]]]]"))
+               (REVERSE . #,(m-expr "lambda[[xs];\
                                       [null[xs] -> NIL;\
-                                       T -> append[rev[cdr[xs]];cons[car[xs];NIL]]]]]"))
+                                       T -> append[reverse[cdr[xs]];cons[car[xs];NIL]]]]"))
                )))
 
 
