@@ -244,7 +244,7 @@ Run the following command in the toplevel source directory:
 
 [source, console]
 ----
-$ gosh tools/axiom-env.scm examples/eval.mx
+$ gosh tools/mexpr-env.scm examples/eval.mx
 ----
 
 It reads `eval.mx` and prints the definitions in an alist.  Copy the output,
@@ -259,7 +259,7 @@ gosh> ,u LISP1.5.axioms
 gosh> ,l examples/eval.mx
 #t
 gosh> (EVAL '(EVAL (QUOTE (CAR (QUOTE (X . Y)))) (QUOTE NIL))
-            '...<<here, copy & paste the output of axiom-env.scm>>)
+            '...<<here, copy & paste the output of mexpr-env.scm>>)
 X
 ----
 
@@ -267,7 +267,7 @@ The result `X` is the result of `(CAR (QUOTE (X . Y)))`, computed
 by the `EVAL` function implemented in LISP1.5, not the underlying Gauche.
 
 If it is not obvious, try it with slightly different environment.
-For example, edit the output of `axiom-env` so that it recognizes
+For example, edit the output of `mexpr-env` so that it recognizes
 `KAR` instead of `CAR` as the primitive:
 
 [source, lisp]
@@ -294,10 +294,7 @@ Then, the inner `EVAL` understands `KAR` instead of `CAR`:
 ----
 
 
-=== Global environment
+=== Getting Lazy
 
-The universal EVAL function above has only a _local_ environment,
-passed to the second argument.　It is still turing complete, but
-it's so inconvenient.
-
+Having LISP implemented in LISP allows you to 
 
