@@ -274,7 +274,7 @@ Run `mexpr-env.scm` with `-e` option, and save the result in `eval-star.lisp`:
 [source, console]
 ----
 $ gosh tools/mexpr-env.scm -e examples/eval.mx > eval-star.lisp
----
+----
 
 We use suffix `lisp` since but it's arbitrary.  The created `eval-star.lisp`
 looks like the following:
