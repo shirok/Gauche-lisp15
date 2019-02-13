@@ -50,7 +50,7 @@ gosh> (parse-mexpr "cons[(A . B);C]")
 ----
 
 Uppercase names and lists in M-expression are literals,
-hence they are `QUOTE`'d once parsed.
+hence they are `QUOTE`{nbsp}d once parsed.
 
 If the input may contain more than one M-expression, use `parse-mexprs`
 instead, which reads input up to EOF and returns an lseq of result
