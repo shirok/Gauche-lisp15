@@ -276,8 +276,9 @@ Run `mexpr-env.scm` with `-e` option, and save the result in `eval-star.lisp`:
 $ gosh tools/mexpr-env.scm -e examples/eval.mx > eval-star.lisp
 ----
 
-We use suffix `lisp` since but it's arbitrary.  The created `eval-star.lisp`
-looks like the following:
+We use suffix `lisp` since it is not a Scheme code,
+but actually it doesn't matter.  The created `eval-star.lisp`
+looks as follows:
 
 [source, lisp]
 ----
@@ -298,7 +299,7 @@ gosh> (EVAL* '#,(m-expr"eval[(CONS (QUOTE X) (QUOTE Y));NIL]"))
 This time we used M-expression in the inner call.  It's the same
 as writing `'(EVAL (QUOTE (CONS (QUOTE X) (QUOTE Y))) (QUOTE NIL))`.
 
-Let's recap what's happening.  The outer `EVAL` (via `EVAL*` is
+Let's recap what's happening.  The outer `EVAL` (via `EVAL*`) is
 executed by Gauche, using the initially loaded `eval.mx`.  The
 inner `EVAL` is interpreted by the outer `EVAL`.  And the
 expression `(CONS (QUOTE X) (QUOTE Y))` is interpreted by
@@ -347,5 +348,7 @@ Now, try it:
 ----
 
 The two `QUOTE`s are recognized by the outer `EVAL`, and the two
-`KWOTE`s are recognized by the inner `EVAL`.
+`KWOTE`s are recognized by the inner `EVAL`.  Furthermore,
+the `'` (`quote`) is recognized by Gauche.
+
 
