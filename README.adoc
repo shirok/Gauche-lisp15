@@ -50,7 +50,7 @@ gosh> (parse-mexpr "cons[(A . B);C]")
 ----
 
 Uppercase names and lists in M-expression are literals,
-hence they are QUOTE-d once parsed.
+hence they are `QUOTE`d once parsed.
 
 If the input may contain more than one M-expression, use `parse-mexprs`
 instead, which reads input up to EOF and returns an lseq of result
@@ -266,35 +266,86 @@ X
 The result `X` is the result of `(CAR (QUOTE (X . Y)))`, computed
 by the `EVAL` function implemented in LISP1.5, not the underlying Gauche.
 
-If it is not obvious, try it with slightly different environment.
-For example, edit the output of `mexpr-env` so that it recognizes
-`KAR` instead of `CAR` as the primitive:
+If cut&pasting the environment alist is too tedious, `mexpr-env.scm` can
+create a definition of an auxiliary function `EVAL*`, which calls `EVAL`
+with the environment that has all the definitions in the given source file.
+Run `mexpr-env.scm` with `-e` option, and save the result in `eval-star.lisp`:
+
+[source, console]
+----
+$ gosh tools/mexpr-env.scm -e examples/eval.mx > eval-star.lisp
+---
+
+We use suffix `lisp` since but it's arbitrary.  The created `eval-star.lisp`
+looks like the following:
 
 [source, lisp]
 ----
- (APPLY
+(DEFINE ((EVAL* (LAMBDA (X) (EVAL X '...<<environment defined in eval.mx>>...
+)))))
+----
+
+It can be loaded to `gosh` after using `LISP1.5.axioms`.  
+Together with `examples/eval.mx`, you can run `EVAL` on top of `EVAL`:
+
+[source, console]
+----
+$ gosh -I. -uLISP1.5.axioms -lexamples/eval.mx -leval-star.lisp
+gosh> (EVAL* '#,(m-expr"eval[(CONS (QUOTE X) (QUOTE Y));NIL]"))
+(X . Y)
+----
+
+This time we used M-expression in the inner call.  It's the same
+as writing `'(EVAL (QUOTE (CONS (QUOTE X) (QUOTE Y))) (QUOTE NIL))`.
+
+Let's recap what's happening.  The outer `EVAL` (via `EVAL*` is
+executed by Gauche, using the initially loaded `eval.mx`.  The
+inner `EVAL` is interpreted by the outer `EVAL`.  And the
+expression `(CONS (QUOTE X) (QUOTE Y))` is interpreted by
+the inner `EVAL`:
+
+----
+        +----------------------------+
+        | (CONS (QUOTE X) (QUOTE Y)) |
+        +----------------------------+
+        |           EVAL             |  ; inner EVAL
+        +----------------------------+
+        |           EVAL             |  ; outer EVAL
+        +----------------------------+
+        |          Gauche            |
+        +----------------------------+
+----
+
+If it is not obvious, try it with alternated environment.
+For example, edit the `eval-star.lisp` created by `mexpr-env.scm` above
+to change the inner `EVAL` recognizes `KWOTE` instead of `QUOTE`.
+There's only one place to change:
+
+[source, lisp]
+----
+ (EVAL
   LAMBDA
-  (FN X A)
+  (E A)
   (COND
-   ((ATOM FN)
-    (COND ((EQ FN (QUOTE KAR)) (CAAR X)) ((EQ FN (QUOTE CDR)) (CDAR X))
-                         ^^^
+   ((ATOM E) (CDR (ASSOC E A)))
+   ((ATOM (CAR E))
+    (COND ((EQ (CAR E) (QUOTE KWOTE)) (CADR E))
+                              ^^^^^
+     ((EQ (CAR E) (QUOTE COND)) (EVCON (CDR E) A))
+     ((QUOTE T) (APPLY (CAR E) (EVLIS (CDR E) A) A))))
+   ((QUOTE T) (APPLY (CAR E) (EVLIS (CDR E) A) A))))
 ----
 
-(It is the only place you need to edit; other `CAR` in the environment
-are recognized by the base `EVAL` so shouldn't be touched.)
+(Leave other `QUOTE` intact, for they are recognized by the outer `EVAL`).
 
-Then, the inner `EVAL` understands `KAR` instead of `CAR`:
+Now, try it:
 
 [source, lisp]
 ----
-(EVAL '(EVAL (QUOTE (KAR (QUOTE (X . Y)))) (QUOTE NIL))
-      '...<<paste the edited environment alist>>...)
- => X
+(EVAL* '(EVAL (QUOTE (CONS (KWOTE X) (KWOTE Y))) (QUOTE NIL)))
+  => (X . Y)
 ----
 
-
-=== Getting Lazy
-
-Having LISP implemented in LISP allows you to 
+The two `QUOTE`s are recognized by the outer `EVAL`, and the two
+`KWOTE`s are recognized by the inner `EVAL`.
 
