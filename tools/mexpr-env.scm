@@ -13,28 +13,22 @@
   (print "  with the given environment.")
   (exit 1))
 
-(define *preamble* "")
-(define *postamble* "")
-
-(define (setup-evalfn)
-  (set! *preamble* "(DEFINE ((EVAL* (LAMBDA (X) (EVAL X '")
-  (set! *postamble* ")))))\n"))
+(define *defs* '())
 
 (define-syntax DEFINE
   (syntax-rules ()
     [(_ ((var expr) ...))
-     (begin 
-       (display *preamble*)
-       (pprint '((var . expr) ...))
-       (display *postamble*)
-       (undefined))]))
+     (begin (push! *defs* '((var . expr) ...))
+            (undefined))]))
 
 (define (main args)
-  (let-args (cdr args) ([#f "e" => setup-evalfn]
+  (let-args (cdr args) ([emit-eval* "e"]
                         [else => (^ _ (usage))]
                         . files)
-    (if (null? files)
-      (usage)
-      (dolist [file files]
-        (load file :paths '("."))))
+    (when (null? files) (usage))
+    (dolist [file files]
+      (load file :paths '(".")))
+    (when emit-eval* (display "(DEFINE ((EVAL* (LAMBDA (X) (EVAL X '"))
+    (pprint (concatenate (reverse *defs*)))
+    (when emit-eval* (print ")))))"))
     0))
