@@ -29,7 +29,7 @@ ARCHFILES =
 SCMFILES  = $(srcdir)/LISP1/5.scm
 HEADERS   =
 
-TARGET    = $(ARCHFILES)
+TARGET    = lisp/eval.lisp lisp/mapcar.lisp
 GENERATED =
 CONFIG_GENERATED = Makefile config.cache config.log config.status \
 		   configure.lineno autom4te*.cache $(PACKAGE).gpd
@@ -42,9 +42,12 @@ lisp15_SRCS = $(srcdir)/lisp15.c $(srcdir)/lisp15lib.stub
 
 all : $(TARGET)
 
-lisp15.$(SOEXT): $(lisp15_SRCS)
-	$(GAUCHE_PACKAGE) compile \
-	  --local=$(LOCAL_PATHS) --verbose lisp15 $(lisp15_SRCS)
+lisp/eval.lisp : examples/eval.mx
+	$(GOSH) tools/mexpr-env.scm -e examples/eval.mx > lisp/eval.lisp
+
+lisp/mapcar.lisp : examples/eval.mx examples/mapcar.mx
+	$(GOSH) tools/mexpr-env.scm -e examples/eval.mx examples/mapcar.mx \
+	   > lisp/mapcar.lisp
 
 check : all
 	@rm -f test.log
