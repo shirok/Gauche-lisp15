@@ -2,3 +2,4 @@
 /Makefile
 /VERSION
 /*.log
+/lisp/*.lisp
