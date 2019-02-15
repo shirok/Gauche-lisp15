@@ -648,3 +648,181 @@ returned as values; they will evaluate to closures themselves.
 ----
 
 ==========================================================
+
+
+=== Toplevel environment
+
+
+
+
+
+== Building Runtime
+
+In the previous section we showed we can run a complete LISP interpreter
+on top of a handful of primitive operators.
+Providing those operators are link:LISP1/5/axioms.scm[incredibly easy] -- only
+a half page of code can bootstrap Lisp!
+
+Well, there's an important omission.  To provide `CONS`, for example,
+you have to allocate a piece of memory somewhere.  
+To read and write M- or S-expressions,
+you need I/O.  In link:LISP1/5/axioms.scm[], we just put those work
+on Gauche runtime.  Isn't it a kind of cheat?  Don't you want to
+know what it _really_ takes to build a LISP system from scratch?
+
+Well then, let's do that!
+
+=== Memory model
+
+We start from the memory.
+
+IBM704, on which LISP was first developed, was a 36-bit machine.
+Its memory was basically an array of 36-bit words -- each address
+can hold a word, not 8-bit byte.
+Once read into a register, a word can be accessed with 4 fields,
+3-bit _prefix_, 15-bit _decrement_, 3-bit _tag_, and 15-bit _address_.
+The memory can be fully accessed with 15-bit address, so each word
+can have two pointers.
+`CAR` and `CDR` came from _contends_of_address_part_of_register_ and
+_contents_of_decrement_part_of_register.  
+I suspect that this architecture of IBM704
+influenced the design of LISP using two-pointer cells (_cons_cells_)
+for almost everything.
+
+To store characters, a word is viewed as a chunk of six 6-bit
+characters.  In LISP1.5, such words that are not used as two-pointer
+cells are called _full_word_.  A character string is represented
+as a list of such full words.  (Though LISP1.5 didn't have a string
+object -- list of full words only appears as an attribute value
+of atomic symbols).
+
+Distinguishing cons cells and full words are done by simply
+splitting memory into region; certain region only stores cons cells,
+and another region only sotres full words.  So you can tell which is which
+by looking at the address.
+
+We don't really write an emulator of IBM704, but we can taste
+its flavor by defining our memory as an array of words.
+
+Let's use `u32vector` as our memory.  Our word is 32bit.  For a cell,
+we read it as two 16bit addresses; so we have 65536 words.  So small, yeh?
+It still amounts 256KB of memory and that was luxury back then.
+
+To keep things simple, we split our 16bit address space into two even
+spaces; first half for the cells, and second half for the full words.
+Then we can look at the MSB of the address to say which is which.
+
+----
+                 32bit word
+       +----------------------------+
+#xffff |                            |
+       |                            |
+       |         Full words         |
+       |                            |
+#x8000 |                            |
+       +----------------------------+
+#x7fff |                            |
+       |                            |
+       |         Cons cells         |
+       |                            |
+#x0000 |                            |
+       +----------------------------+
+----       
+
+A cons cell consists of two 16-bit addresses:
+
+----
+                      16bits         16bits
+                 +--------------+--------------+
+      Cons cell: |     CDR      |     CAR      |
+                 +--------------+--------------+
+----
+
+A full word may be used for character strings, numbers (32bit signed
+fixnum or 32bit single-precision floating number),
+and native objects.
+
+Character strings are a list of cells each of whose CDR points to a
+full word, which can contain up to 8 octets, NUL-padded.  Character
+strings are not first-class object in LISP1.5 and can only appear
+as the name of symbols.
+
+A native object is a backdoor for LISP1.5 programs to access
+underlying Gauche features; certain primitive functions are
+implemented in Gauche level, and called from LISP1.5 via native
+objects.  It is simply a index to a native object vector.
+
+Numbers and native objects are always pointed from CDR of a special cons
+cell, whose CAR has a special value to distinguish itself from the ordinary
+cons cells.  We use the following special values to _tag_ the special
+cons cells.
+
+* #xffff - The cell is a symbol, and its CDR has a property list.
+* #xfffe - The cell is a native object, and its CDR is an index to
+the native object vector.
+* #xfffd - The cell is a fixnum, and its CDR points to a full word of
+32bit signed integer.
+* #xfffc - The cell is a flonum, and its CDR points to a full word of
+32bit floating point number.
+
+We reserve full words at these addresses, so that no valid pointer
+can use these values.
+
+[NOTE]
+==================================================================
+In original LISP1.5, an atom is a cell with -1 (#o77777) in its CAR.
+An atom can be a symbol or a number.  The type of the atom is
+distinguished by the tag field of the word.
+==================================================================
+
+=== Symbols
+
+
+
+
+=== Allocator and garbage collector
+
+We have `CONS` to allocate memory, but there's no operation to explicitly
+free it.  Instead, we scan the memory and reclaim unused words when
+needed.  LISP was the birthplace of garbage collection.
+
+LISP1.5 used mark-and-sweep garbage collector.   For cons cells,
+sign bit (in the prefix field) is used as a mark bit, and for full words,
+separate bittable is used as mark bits.
+
+In our architecture we don't have any extra bit, but we can
+put extra piece of memory.  So, let's assume we have a special
+kind of memory outside of the address space, where each bit
+corresponds to each word in the main memory.  We'll provide
+primitives to read and modify those bits.
+
+Memory allocation works as follows:
+
+* Initially, all the available cons cells and available full words
+are chained to each _freelist_.  Each entry of the free list looks like
+this (0 in the next word indicates the end of the list).
+
+----
+                      16bits         16bits
+                 +--------------+--------------+
+Free list entry: |      0       |  next word   |
+                 +--------------+--------------+
+----
+
+* Every time we need a new cons cell or full word, we take one from
+either freelist.  If we exhaust either one, we trigger GC.
+
+Our garbage collector is a traditional mark-and-sweep GC:
+
+* Clear the mark bits.
+* From the root set, we trace all the pointers and mark the visited words.
+* Scan the mark bits and push words that hasn't been marked to the freelist.
+
+However, there's a catch -- our collector itself is written in LISP,
+so it needs to allocate some memory
+
+=== Standard library
+
+=== Applications
+
+
