@@ -279,11 +279,12 @@ $ gosh tools/mexpr-env.scm -e examples/eval.mx > lisp/eval.lisp
 ----
 
 [TIP]
-********************************************************************
+==================================================================
 Instead of manually executing `tools/mexpr-env.scm`, you can
 run the standard build process (`./configur && make`) and
 all the converted files are placed under `lisp/`.
-********************************************************************
+==================================================================
+
 
 We use suffix `lisp` to indicate it is not a Scheme code (even though
 Gauche can understand it after using `LISP1.5.axioms`).
@@ -380,8 +381,8 @@ returns a list of results of the function applied to each element of the
 given list (that is, Scheme's `map` function):
 
 ----
-mapcar[f;x] = [null[x] -> NIL;
-               T -> cons[f[car[x]];mapcar[f;cdr[x]]]]
+mapcar[fn;x] = [null[x] -> NIL;
+                T -> cons[fn[car[x]];mapcar[fn;cdr[x]]]]
 ----
 
 It is in link:examples/mapcar.mx[].  You can't load it directly
@@ -436,24 +437,86 @@ Here's LISP1.5 version:
   => ((((P Q R) . P) ((Q R) . Q) ((R) . R)) (((P Q R) . P) ((Q R) . Q) ((R) . R)) (((P Q R) . P) ((Q R) . Q) ((R) . R)))
 ----
 
-Oops, what happened?  Let's look at the evaluation of the above `MAPCAR`
-step by step.  First, `EVAL*` calls `EVAL` with a bunch of definitions.
-Here, `e` is our outer `(MAPCAR ...)` expression, and `a` is the environment:
+Oops, what happened?  Let's examine the details.
+Outer `MAPCAR` receives two actual parameters, `(LAMBDA (X) ...)` and `(A B C)`
+(`QUOTE`{nbsp}s are stripped when arguments are evaluated
+by `evlis` before calling the function).   They are bound to the
+local parameters, `FN` and `X`, respectively.  In other words,
+the body of `MAPCAR`:
 
 ----
-eval[e;a] =
-  [atom[e] -> cdr[assoc[e;a]];
-   atom[car[e]] -> [eq[car[e];QUOTE] -> cadr[e];
-                    eq[car[e];COND] -> evcon[cdr[e];a];
-                    T -> apply[car[e];evlis[cdr[e];a];a]];  <1>
-   T -> apply[car[e];evlis[cdr[e];a];a]]
+[null[x] -> NIL;
+ T -> cons[fn[car[x]];mapcar[fn;cdr[x]]]]
 ----
 
-<1> This branch is executed.
+is evaluated with the following environment:
 
+----
+((FN . (LAMBDA (X)
+         (MAPCAR (QUOTE (LAMBDA (Y) (CONS X Y)))
+                 (QUOTE (P Q R)))))
+ (X . (A B C)))
+----
 
+Since `X` is not `NIL`, evaluation goes to `cons[...]` branch.
+The first argument is `fn[car[x]]`, so first `car[x]` is evaluated
+and yields `A`, `fn` evaluated to the outer `LAMBDA` form
+and we call it with `A`.  The body of inner `LAMBDA` form, which
+is the inner `MAPCAR` call, is evaluated with the following environment
+(Keep in mind that the new local bindings are inserted in front of
+outer environment):
 
+----
+((X . A)
+ (FN . (LAMBDA (X)
+         (MAPCAR (QUOTE (LAMBDA (Y) (CONS X Y)))
+                 (QUOTE (P Q R)))))
+ (X . (A B C)))
+----
 
+Inner `MAPCAR` gets `(LAMBDA (Y) (CONS X Y))` and `(P Q R)` as two
+actual parameters, which are bound to `MAPCAR`{nbsp}'s formal paramter
+`FN` and `X` again, and the environment under which innter `MAPCAR`{nbsp}'s
+body is evaluated looks like this:
+
+----
+((FN . (LAMBDA (Y) (CONS X Y)))
+ (X . (P Q R))
+ (X . A)
+ (FN . (LAMBDA (X)
+         (MAPCAR (QUOTE (LAMBDA (Y) (CONS X Y)))
+                 (QUOTE (P Q R)))))
+ (X . (A B C)))
+----
+
+Finally, innter `LAMBDA` is called -- first, `P` as the
+actual parameter, which is bound to `Y`.  Hence the body
+of the inner `LAMBDA`, which is `(CONS X Y)`, is evaluated
+under the following environment:
+
+----
+((Y . P)
+ (FN . (LAMBDA (Y) (CONS X Y)))
+ (X . (P Q R))    <1>
+ (X . A)          <2> 
+ (FN . (LAMBDA (X)
+         (MAPCAR (QUOTE (LAMBDA (Y) (CONS X Y)))
+                 (QUOTE (P Q R)))))
+ (X . (A B C)))   <3>
+----
+
+1. Argument for the inner `MAPCAR`
+2. Argument for the outer `LAMBDA`
+3. Argument for the outer `MAPCAR`
+
+Now it is clear that why it didn't work.   When you write the
+initial nested `MAPCAR` form, we expect that `X` in the
+innermost expression `(CONS X Y)` refer to the formal parameter of the
+outer `LAMBDA`.  But it is shadowed by the formal parameter of the
+`MAPCAR`.
+
+This is a well-known problem, and in lambda calculus it is avoided
+by _renaming_ the parameter name to avoid conflict.
 
 
 ----

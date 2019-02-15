@@ -2,5 +2,5 @@
 
 #!m-expr
 
-mapcar[f;x] = [null[x] -> NIL;
-               T -> cons[f[car[x]];mapcar[f;cdr[x]]]]
+mapcar[fn;x] = [null[x] -> NIL;
+                T -> cons[fn[car[x]];mapcar[fn;cdr[x]]]]
