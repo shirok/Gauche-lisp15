@@ -2,10 +2,16 @@
 = LISP1.5 implementation on Gauche
 :sectnums:
 :toc:
+:toc-placement!:
+ifdef::env-github[]
+:tip-caption: :bulb:
+endif::[]
 
 This is a fun project to implement LISP 1.5 as described in
 "LISP 1.5 Programmer's Manual".  It's not a complete LISP 1.5 environment
 emulator; instead, it is to get a glimpse of how it is constructed.
+
+toc::[]
 
 
 == M-expressions
