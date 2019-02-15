@@ -29,7 +29,7 @@ ARCHFILES =
 SCMFILES  = $(srcdir)/LISP1/5.scm
 HEADERS   =
 
-TARGET    = lisp/eval.lisp lisp/mapcar.lisp lisp/funarg.lisp
+TARGET    = lisp/eval.lisp lisp/mapcar.lisp
 GENERATED =
 CONFIG_GENERATED = Makefile config.cache config.log config.status \
 		   configure.lineno autom4te*.cache $(PACKAGE).gpd
@@ -40,18 +40,12 @@ GAUCHE_PKGARCHDIR = "$(DESTDIR)@GAUCHE_PKGARCHDIR@"
 
 all : $(TARGET)
 
-lisp/eval.lisp : examples/eval.mx
-	$(GOSH) tools/mexpr-env.scm -e examples/eval.mx > lisp/eval.lisp
+lisp/eval.lisp : mx/eval.mx
+	$(GOSH) tools/mexpr-env.scm -e mx/eval.mx > lisp/eval.lisp
 
-lisp/mapcar.lisp : examples/eval.mx examples/mapcar.mx
-	$(GOSH) tools/mexpr-env.scm -e examples/eval.mx examples/mapcar.mx \
+lisp/mapcar.lisp : mx/eval.mx mx/mapcar.mx
+	$(GOSH) tools/mexpr-env.scm -e mx/eval.mx mx/mapcar.mx \
 	   > lisp/mapcar.lisp
-
-lisp/funarg.lisp : examples/eval.mx examples/mapcar.mx examples/funarg.mx
-	$(GOSH) tools/mexpr-env.scm -e examples/eval.mx \
-                                       examples/mapcar.mx \
-                                       examples/funarg.mx \
-	   > lisp/funarg.lisp
 
 check : all
 	@rm -f test.log

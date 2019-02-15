@@ -109,7 +109,7 @@ Section 1.6 of "LISP 1.5 Programmier's Manual" is one of the pinnacles
 of the document.  They show how to implement Lisp interpreter
 on top of Lisp systems.  They call it a "Universal LISP function".
 
-We write out their code in link:examples/eval.mx[].
+We write out their code in link:mx/eval.mx[].
 
 What's interesting about it is that you only need a handful of
 functions and syntaxes to run the interpreter.  We define those
@@ -124,7 +124,7 @@ you can say the following in the gosh REPL:
 
 ----
 gosh> ,u LISP1.5.axioms
-gosh> ,l examples/eval.mx
+gosh> ,l mx/eval.mx
 #t
 ----
 
@@ -132,7 +132,7 @@ Or, you can start gosh with loading necessary modules
 (this assumes you're in the top directory of LISP1.5 source):
 
 ----
-$ gosh -I. -u LISP1.5.axioms -l examples/eval.mx
+$ gosh -I. -u LISP1.5.axioms -l mx/eval.mx
 ----
 
 On the gosh prompt, you can call `EVAL`.  The first argument
@@ -252,7 +252,7 @@ in `eval.mx` as an environment alist passed to outer `EVAL`.
 Run the following command in the toplevel source directory:
 
 ----
-$ gosh tools/mexpr-env.scm examples/eval.mx
+$ gosh tools/mexpr-env.scm mx/eval.mx
 ----
 
 It reads `eval.mx` and prints the definitions in an alist.  Copy the output,
@@ -263,7 +263,7 @@ the `EVAL` expression, passing the copied alist as the environment
 
 ----
 gosh> ,u LISP1.5.axioms
-gosh> ,l examples/eval.mx
+gosh> ,l mx/eval.mx
 #t
 gosh> (EVAL '(EVAL (QUOTE (CAR (QUOTE (X . Y)))) (QUOTE NIL))
             '...<<here, copy & paste the output of mexpr-env.scm>>)
@@ -279,7 +279,7 @@ with the environment that has all the definitions in the given source file.
 Run `mexpr-env.scm` with `-e` option, and save the result in `lisp/eval.lisp`:
 
 ----
-$ gosh tools/mexpr-env.scm -e examples/eval.mx > lisp/eval.lisp
+$ gosh tools/mexpr-env.scm -e mx/eval.mx > lisp/eval.lisp
 ----
 
 [TIP]
@@ -304,10 +304,10 @@ evaluates it under the enviornment where all the definitions in `eval.mx`
 is visible.
 
 The created `eval.lisp` can be loaded to `gosh` after using `LISP1.5.axioms`.  
-Together with `examples/eval.mx`, you can run `EVAL` on top of `EVAL`:
+Together with `mx/eval.mx`, you can run `EVAL` on top of `EVAL`:
 
 ----
-$ gosh -I. -uLISP1.5.axioms -lexamples/eval.mx -leval-star.lisp
+$ gosh -I. -uLISP1.5.axioms -lmx/eval.mx -leval-star.lisp
 gosh> (EVAL* '#,(m-expr"eval[(CONS (QUOTE X) (QUOTE Y));NIL]"))
 (X . Y)
 ----
@@ -392,7 +392,7 @@ mapcar[fn;x] = [null[x] -> NIL;
                 T -> cons[fn[car[x]];mapcar[fn;cdr[x]]]]
 ----
 
-It is in link:examples/mapcar.mx[].  You can't load it directly
+It is in link:mx/mapcar.mx[].  You can't load it directly
 into Gauche, however.  Treating a list starting with `LAMBDA` as
 a function is a feature of `EVAL`, not Gauche.  
 We have to make `EVAL` understand the above definition.
@@ -404,17 +404,17 @@ alist.  We also need the definition of `NULL`, so let's combine
 command line:
 
 ----
-$ gosh tools/mexpr-env.scm -e examples/eval.mx examples/mapcar.mx > lisp/mapcar.lisp
+$ gosh tools/mexpr-env.scm -e mx/eval.mx mx/mapcar.mx > lisp/mapcar.lisp
 ----
 
 Alternatively, run `./configure` then `make` in the toplevel source directory.
 
-Once you have `lisp/mapcar.lisp`, you can load it (after `examples/eval.mx`)
+Once you have `lisp/mapcar.lisp`, you can load it (after `mx/eval.mx`)
 and you can call `MAPCAR` inside `EVAL*`:
 
 ----
 $ gosh -I. -uLISP1.5.axioms
-gosh> ,l examples/eval.mx
+gosh> ,l mx/eval.mx
 #t
 gosh> ,l lisp/mapcar.lisp
 #t
@@ -591,11 +591,11 @@ apply[fn;x;a] =
 1. Apply the wrapped function in the rememberd environment
 
 
-The changed definitions are in link:examples/funarg.mx[].  You can load it
+The changed definitions are in link:mx/funarg.mx[].  You can load it
 and see it addresses the issue (which has been called FUNARG problem).
 
 ----
-$ gosh -I. -u LISP1.5.axioms -l examples/funarg.mx
+$ gosh -I. -u LISP1.5.axioms -l mx/funarg.mx
 gosh> ,l lisp/mapcar.lisp
 #t
 gosh> (EVAL* '(MAPCAR (FUNCTION (LAMBDA (X)
@@ -621,11 +621,11 @@ eval[e;a] =
    T -> apply[car[e];evlis[cdr[e];a];a]]
 ----
 
-The updated definition is in link:examples/funarg-lambda.ax[].  Using it,
+The updated definition is in link:mx/funarg-lambda.ax[].  Using it,
 calling `MAPCAR` becomes quite simpler:
 
 ----
-$ gosh -I. -u LISP1.5.axioms -l examples/funarg-lambda.mx
+$ gosh -I. -u LISP1.5.axioms -l mx/funarg-lambda.mx
 gosh> ,l lisp/mapcar.lisp
 #t
 gosh> (EVAL* '(MAPCAR (LAMBDA (X)
