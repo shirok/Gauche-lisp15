@@ -25,7 +25,7 @@ Now you can make the computer understand M-expression directly!
 - Symbol `NIL` is used for list terminator.  Hence `cons[A;NIL]` yields
   `(A)`.
 - Literal function is written as `lambda[[arg;..];expr]`.  This lambda form
-itself doesn't have a value---it must be called with arguments to take effect.
+itself doesn't have a value -- it must be called with arguments to take effect.
 - Local recursive function can be written as `label[name;lambda[[arg;...];expr]]`,
 where you can use `name` in the `expr` to refer to itself.
 - In toplevel, you can define a function by `name[arg;...] = expr`.
@@ -194,7 +194,9 @@ We need to have the function `NULL` in the environment,
 since the one defined in `eval.mx` exists in the world of Gauche, and
 not visible from the world of `EVAL`.
 
-Hint: When you refer to an identifier that's neither one of the built-in
+.If you use undefined variable...
+********************************************************************
+When you refer to an identifier that's neither one of the built-in
 primitive nor the one given in the environment, you'll get an error
 like the following:
 
@@ -221,6 +223,7 @@ _______________________________________
 The code searches the environment alist by `ASSOC`, hits the end of
 the alist without finding it and complains.  Remember, we have minimal
 interpreter and there's no fancy error handling mechanism.
+********************************************************************
 
 
 === Going Metacircular
@@ -228,7 +231,7 @@ interpreter and there's no fancy error handling mechanism.
 Since the universal LISP function defined in `eval.mx` understands
 the primitives required to interpret functions in `eval.mx`, you can use
 our `EVAL` to evaluate `eval.mx` to run `EVAL` on top of 
-`EVAL`--now you're running a metacircular interpreter!
+`EVAL` -- now you're running a metacircular interpreter!
 
 You might have noticed though, that `axioms.scm` provides `DEFINE`,
 which is missing in `eval.mx`.  In our context of discussing
@@ -236,7 +239,7 @@ metacircular interpreter, `DEFINE` appears as a result of
 parsing M-expression definitions, and should be understood
 as a meta-language to direct the set-up, rather than an integrated
 part of the language (one way to think of it is that if other primitives
-are C built-ins then `DEFINE` is `#pragma` or `Makefile`---they belong
+are C built-ins then `DEFINE` is `#pragma` or `Makefile` -- they belong
 to a slightly different layer.)
 
 Of course, it is more convenient to include `DEFINE` in the core language,
@@ -370,16 +373,17 @@ the `'` (`quote`) is recognized by Gauche.
 One advantage of having a simple language with a concise interpreter is
 that we can tweak it easily.
 
-In the universal `EVAL`, a function is represeted as a literal list
+In the universal `EVAL`, a function is represented as a literal list
 whose car is `LAMBDA`.  It is a powerful idea--now you can have
 a function as a first-class citizen of the language, that you can
 construct it, pass it to another function, and return it from another
 funciton.  However, it has a flaw.
 
-Let's check the flaw and see how to fix it.
+Let's check the flaw and see if we can fix it.
 
-
-
+Consider `MAPCAR` function, which takes a function and a list, and
+returns a list of results of the function applied to each element of the
+given list (that is, Scheme's `map` function):
 
 [source]
 ----
@@ -387,18 +391,82 @@ mapcar[f;x] = [null[x] -> NIL;
                T -> cons[f[car[x]];mapcar[f;cdr[x]]]]
 ----
 
+It is in link:examples/mapcar.mx[].  You can't load it directly
+into Gauche, however.  Treating a list starting with `LAMBDA` is a
+feature of `EVAL`, not Gauche.  We have to make `EVAL` understand
+the above definition.
+
+We can use the same technique we used in the metacircular interpreter --
+that is, translate the definition of `MAPCAR` above into an enviroment
+alist.  We also need the definition of `NULL`, so let's combine
+`eval.mx` together with `mapcar.mx`.  It can be done with the following
+command line:
+
+[source, console]
 ----
-(EVAL* '(MAPCAR (QUOTE (LAMBDA (X) (CONS X (QUOTE Y)))) (QUOTE (A B C))))
- => ((A . Y) (B . Y) (C . Y))
+$ gosh tools/mexpr-env.scm -e examples/eval.mx examples/mapcar.mx > lisp/mapcar.lisp
 ----
 
+Alternatively, run `./configure` then `make` in the toplevel source dirctory.
+
+Once you have `lisp/mapcar.lisp`, you can load it (after `examples/eval.mx`)
+and you can call `MAPCAR` inside `EVAL*`:
+
+[source]
+----
+$ gosh -I. -uLISP1.5.axioms
+gosh> ,l examples/eval.mx
+#t
+gosh> ,l lisp/mapcar.lisp
+#t
+gosh> (EVAL* '(MAPCAR (QUOTE (LAMBDA (X) (CONS X (QUOTE Y)))) (QUOTE (A B C))))
+((A . Y) (B . Y) (C . Y))
+gosh> (EVAL* '#,(m-expr "mapcar[(LAMBDA (X) (CONS X (QUOTE Y)));(A B C)]"))
+((A . Y) (B . Y) (C . Y))
+----
+
+So far, so good.
+
+Now, Let's try nesting `MAPCAR`.  We'll do equivalent to the following
+Scheme code:
+
+[source, scheme]
+----
+(map (lambda (x) (map (lambda (y) (cons x y)) '(p q r))) '(a b c))
+  => (((a . p) (a . q) (a . r)) ((b . p) (b . q) (b . r)) ((c . p) (c . q) (c . r)))
+----
+
+Here's LISP1.5 version:
+
+[source, lisp]
 ----
 (EVAL* '(MAPCAR (QUOTE (LAMBDA (X)
                          (MAPCAR (QUOTE (LAMBDA (Y) (CONS X Y)))
-                                 (QUOTE (A B C)))))
-                (QUOTE (X Y Z))))
-((((A B C) . A) ((B C) . B) ((C) . C)) (((A B C) . A) ((B C) . B) ((C) . C)) (((A B C) . A) ((B C) . B) ((C) . C)))
+                                 (QUOTE (P Q R)))))
+                (QUOTE (A B C))))
+  => ((((P Q R) . P) ((Q R) . Q) ((R) . R)) (((P Q R) . P) ((Q R) . Q) ((R) . R)) (((P Q R) . P) ((Q R) . Q) ((R) . R)))
 ----
+
+Oops, what happened?  Let's look at the evaluation of the above `MAPCAR`
+step by step.  First, `EVAL*` calls `EVAL` with a bunch of definitions.
+Here, `e` is our outer `(MAPCAR ...)` expression, and `a` is the environment:
+
+[source]
+----
+eval[e;a] =
+  [atom[e] -> cdr[assoc[e;a]];
+   atom[car[e]] -> [eq[car[e];QUOTE] -> cadr[e];
+                    eq[car[e];COND] -> evcon[cdr[e];a];
+                    T -> apply[car[e];evlis[cdr[e];a];a]];  <1>
+   T -> apply[car[e];evlis[cdr[e];a];a]]
+----
+
+<1> This branch is executed.
+
+
+
+
+
 
 ----
 (EVAL* '(MAPCAR (QUOTE (LAMBDA (Q)
