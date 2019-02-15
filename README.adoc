@@ -140,6 +140,10 @@ gosh> (EVAL '(CONS (CAR (QUOTE (X . Y))) (QUOTE Z)) 'NIL)
 (X . Z)
 ----
 
+Be aware of the difference of `'` (`quote`) and `QUOTE`.
+The former one is recognized by Gauche.  The latter one is recognized by
+`EVAL`.
+
 If you prefer, you can write M-expressions using
 read-time constructor `#,(m-expr "...")`:
 
@@ -150,7 +154,7 @@ gosh> (EVAL '#,(m-expr "cons[car[(X . Y)];Z]") 'NIL)
 ----
 
 Following is a bit more convoluted example.  It defines `append`
-as recursive funciton using `LABEL`, and calls it with
+as a recursive funciton using `LABEL`, and calls it with
 two arguments, `(A B C)` and `(X Y Z)`:
 
 
@@ -186,8 +190,9 @@ gosh> (EVAL '#,(m-expr "reverse[(A B C D E F G)]")
 (G F D C B A)
 ----
 
-We need to give the function `NULL`, since the one defined in `eval.mx`
-is not visible from the world of `EVAL`.
+We need to have the function `NULL` in the environment, 
+since the one defined in `eval.mx` exists in the world of Gauche, and
+not visible from the world of `EVAL`.
 
 Hint: When you refer to an identifier that's neither one of the built-in
 primitive nor the one given in the environment, you'll get an error
@@ -215,13 +220,13 @@ _______________________________________
 
 The code searches the environment alist by `ASSOC`, hits the end of
 the alist without finding it and complains.  Remember, we have minimal
-interpreter and there's no fancy error handling mechanism!
+interpreter and there's no fancy error handling mechanism.
 
 
 === Going Metacircular
 
 Since the universal LISP function defined in `eval.mx` understands
-required primitives to interpret functions in `eval.mx`, you can use
+the primitives required to interpret functions in `eval.mx`, you can use
 our `EVAL` to evaluate `eval.mx` to run `EVAL` on top of 
 `EVAL`--now you're running a metacircular interpreter!
 
@@ -269,16 +274,16 @@ by the `EVAL` function implemented in LISP1.5, not the underlying Gauche.
 If cut&pasting the environment alist is too tedious, `mexpr-env.scm` can
 create a definition of an auxiliary function `EVAL*`, which calls `EVAL`
 with the environment that has all the definitions in the given source file.
-Run `mexpr-env.scm` with `-e` option, and save the result in `eval-star.lisp`:
+Run `mexpr-env.scm` with `-e` option, and save the result in `lisp/eval.lisp`:
 
 [source, console]
 ----
-$ gosh tools/mexpr-env.scm -e examples/eval.mx > eval-star.lisp
+$ gosh tools/mexpr-env.scm -e examples/eval.mx > lisp/eval.lisp
 ----
 
-We use suffix `lisp` since it is not a Scheme code,
-but actually it doesn't matter.  The created `eval-star.lisp`
-looks as follows:
+We use suffix `lisp` to indicate it is not a Scheme code (even though
+Gauche can understand it after using `LISP1.5.axioms`).
+The created `lisp/eval.lisp` looks as follows:
 
 [source, lisp]
 ----
@@ -286,7 +291,14 @@ looks as follows:
 )))))
 ----
 
-It can be loaded to `gosh` after using `LISP1.5.axioms`.  
+That is, it defines `EVAL*` which takes one LISP1.5 expression and
+evaluates it under the enviornment where all the definitions in `eval.mx`
+is visible.
+
+In case if you don't feel like typing the above command-line,
+you can just do `./configure && make` and `lisp/eval.lisp` is created.
+
+The created `eval.lisp` can be loaded to `gosh` after using `LISP1.5.axioms`.  
 Together with `examples/eval.mx`, you can run `EVAL` on top of `EVAL`:
 
 [source, console]
@@ -301,8 +313,9 @@ as writing `'(EVAL (QUOTE (CONS (QUOTE X) (QUOTE Y))) (QUOTE NIL))`.
 
 Let's recap what's happening.  The outer `EVAL` (via `EVAL*`) is
 executed by Gauche, using the initially loaded `eval.mx`.  The
-inner `EVAL` is interpreted by the outer `EVAL`.  And the
-expression `(CONS (QUOTE X) (QUOTE Y))` is interpreted by
+inner `EVAL` is interpreted by the outer `EVAL`, using the
+enviornment created by `mexpr-env.scm`.
+And the expression `(CONS (QUOTE X) (QUOTE Y))` is interpreted by
 the inner `EVAL`:
 
 ----
@@ -318,7 +331,7 @@ the inner `EVAL`:
 ----
 
 If it is not obvious, try it with alternated environment.
-For example, edit the `eval-star.lisp` created by `mexpr-env.scm` above
+For example, edit the `eval.lisp` created above
 to change the inner `EVAL` recognizes `KWOTE` instead of `QUOTE`.
 There's only one place to change:
 
@@ -352,3 +365,45 @@ The two `QUOTE`{nbsp}'s are recognized by the outer `EVAL`, and the two
 the `'` (`quote`) is recognized by Gauche.
 
 
+=== Having FUN with ARG
+
+One advantage of having a simple language with a concise interpreter is
+that we can tweak it easily.
+
+In the universal `EVAL`, a function is represeted as a literal list
+whose car is `LAMBDA`.  It is a powerful idea--now you can have
+a function as a first-class citizen of the language, that you can
+construct it, pass it to another function, and return it from another
+funciton.  However, it has a flaw.
+
+Let's check the flaw and see how to fix it.
+
+
+
+
+[source]
+----
+mapcar[f;x] = [null[x] -> NIL;
+               T -> cons[f[car[x]];mapcar[f;cdr[x]]]]
+----
+
+----
+(EVAL* '(MAPCAR (QUOTE (LAMBDA (X) (CONS X (QUOTE Y)))) (QUOTE (A B C))))
+ => ((A . Y) (B . Y) (C . Y))
+----
+
+----
+(EVAL* '(MAPCAR (QUOTE (LAMBDA (X)
+                         (MAPCAR (QUOTE (LAMBDA (Y) (CONS X Y)))
+                                 (QUOTE (A B C)))))
+                (QUOTE (X Y Z))))
+((((A B C) . A) ((B C) . B) ((C) . C)) (((A B C) . A) ((B C) . B) ((C) . C)) (((A B C) . A) ((B C) . B) ((C) . C)))
+----
+
+----
+(EVAL* '(MAPCAR (QUOTE (LAMBDA (Q)
+                         (MAPCAR (QUOTE (LAMBDA (Y) (CONS Q Y))) 
+                                 (QUOTE (A B C)))))
+                (QUOTE (X Y Z))))
+(((X . A) (X . B) (X . C)) ((Y . A) (Y . B) (Y . C)) ((Z . A) (Z . B) (Z . C)))
+----
