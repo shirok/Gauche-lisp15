@@ -193,8 +193,8 @@ gosh> (EVAL '#,(m-expr "reverse[(A B C D E F G)]")
 
 [NOTE]
 ================================================================
-We need to have the function `NULL` in the environment, 
-since the one defined in `eval.mx` exists in the world of Gauche, and
+We need to provide the function `NULL` in the environment, 
+since the one defined in `eval.mx` exists in the world of Gauche, and is
 not visible from the world of `EVAL`.
 ================================================================
 
