@@ -365,6 +365,9 @@ the `'` (`quote`) is recognized by Gauche.
 
 === Having FUN with ARG
 
+(If you know what we'll talk about from the section title, you can
+skip this section.  Yes, it's just about _that_.)
+
 One advantage of having a simple language with a concise interpreter is
 that we can tweak it easily.
 
@@ -497,12 +500,12 @@ under the following environment:
 ----
 ((Y . P)
  (FN . (LAMBDA (Y) (CONS X Y)))
- (X . (P Q R))    <1>
- (X . A)          <2> 
+ (X . (P Q R))                                <1>
+ (X . A)                                      <2> 
  (FN . (LAMBDA (X)
          (MAPCAR (QUOTE (LAMBDA (Y) (CONS X Y)))
                  (QUOTE (P Q R)))))
- (X . (A B C)))   <3>
+ (X . (A B C)))                               <3>
 ----
 
 1. Argument for the inner `MAPCAR`
@@ -516,13 +519,85 @@ outer `LAMBDA`.  But it is shadowed by the formal parameter of the
 `MAPCAR`.
 
 This is a well-known problem, and in lambda calculus it is avoided
-by _renaming_ the parameter name to avoid conflict.
-
+by _renaming_ the parameter name to avoid conflict.  In our case,
+if we rename the formal parameter of inner `LAMBDA` to something
+different from the formal parameter of `MAPCAR`, it works as expected:
 
 ----
-(EVAL* '(MAPCAR (QUOTE (LAMBDA (Q)
-                         (MAPCAR (QUOTE (LAMBDA (Y) (CONS Q Y))) 
-                                 (QUOTE (A B C)))))
-                (QUOTE (X Y Z))))
-(((X . A) (X . B) (X . C)) ((Y . A) (Y . B) (Y . C)) ((Z . A) (Z . B) (Z . C)))
+(EVAL* '(MAPCAR (QUOTE (LAMBDA (Z)                                  <1>
+                         (MAPCAR (QUOTE (LAMBDA (Y) (CONS Z Y))) 
+                                 (QUOTE (P Q R)))))
+                (QUOTE (A B C))))
+ => (((A . P) (A . Q) (A . R)) ((B . P) (B . Q) (B . R)) ((C . P) (C . Q) (C . R)))
 ----
+
+1. We use `Z` to avoid confclit with `MAPCAR`{nbsp}'s `X`.
+
+However, we can't possibly avoid all potential conflict manually,
+and renaming all formal parameters to unique one can be costly.
+
+LISP1.5 employed another way to solve this problem.  Instead of passing
+`LAMBDA` form quoted, it introduced another form, called `FUNCTION`.
+The rule is that whenever you pass a function as an argument,
+wrap it with `FUNCTION` instead of `QUOTE`.  With this rule,
+our call of nested `MAPCAR` would look like this:
+
+----
+(EVAL* '(MAPCAR (FUNCTION (LAMBDA (X)
+                            (MAPCAR (FUNCTION (LAMBDA (Y) (CONS X Y))) 
+                                    (QUOTE (P Q R)))))
+                (QUOTE (A B C))))
+----
+
+Now we modify our universal LISP function to deal with `FUNCTION`.
+We only need to change two lines.  First, make `EVAL` understand
+`(FUNCTION <fn>)` form.  Whenver it sees the form, it just
+returns a list `(FUNARG <fn> <env>)`, where `<env>` is the evaluation
+enviornment:
+
+----
+eval[e;a] =
+  [atom[e] -> cdr[assoc[e;a]];
+   atom[car[e]] -> [eq[car[e];QUOTE] -> cadr[e];
+                    eq[car[e];FUNCTION] -> cons[FUNARG;cons[cadr[e];cons[a;NIL]]]; <1>
+                    eq[car[e];COND] -> evcon[cdr[e];a];
+                    T -> apply[car[e];evlis[cdr[e];a];a]];
+   T -> apply[car[e];evlis[cdr[e];a];a]]
+----
+
+1. If we see `(FUNCTION <fn>)` form, wrap the function and the current environment in `FUNARG` form, as `(FUNARG <fn> <env>)`.
+
+
+Then, in `APPLY`, we call `<fn>` with the rememberd `<env>` instead of
+the passed environment:
+
+----
+apply[fn;x;a] =
+  [atom[fn] -> [eq[fn;CAR] -> caar[x];
+                eq[fn;CDR] -> cdar[x];
+                eq[fn;CONS] -> cons[car[x];cadr[x]];
+                eq[fn;ATOM] -> atom[car[x]];
+                eq[fn;EQ] -> eq[car[x];cadr[x]];
+                T -> apply[eval[fn;a];x;a]];
+   eq[car[fn];FUNARG] -> apply[cadr[fn];x;caddr[fn]];                  <1>
+   eq[car[fn];LAMBDA] -> eval[caddr[fn];pairlis[cadr[fn];x;a]];
+   eq[car[fn];LABEL] -> apply[caddr[fn];x;cons[cons[cadr[fn];caddr[fn]];a]]]
+----
+
+1. Apply the wrapped function in the rememberd environment
+
+
+The changed definitions are in link:examples/funarg.mx[].  You can load it
+and see it addresses the issue (which has been called FUNARG problem).
+
+----
+$ gosh -I. -u LISP1.5.axioms -l examples/funarg.mx
+gosh> ,l lisp/mapcar.lisp
+#t
+gosh> (EVAL* '(MAPCAR (FUNCTION (LAMBDA (X)
+                         (MAPCAR (FUNCTION (LAMBDA (Y) (CONS X Y)))
+                                 (QUOTE (P Q R)))))
+                (QUOTE (A B C))))
+(((A . P) (A . Q) (A . R)) ((B . P) (B . Q) (B . R)) ((C . P) (C . Q) (C . R)))
+----
+
