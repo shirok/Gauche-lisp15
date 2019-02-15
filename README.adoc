@@ -193,7 +193,7 @@ not visible from the world of `EVAL`.
 
 [TIP]
 .If you use undefined variable...
-********************************************************************
+================================================================
 When you refer to an identifier that's neither one of the built-in
 primitive nor the one given in the environment, you'll get an error
 like the following:
@@ -220,7 +220,7 @@ _______________________________________
 The code searches the environment alist by `ASSOC`, hits the end of
 the alist without finding it and complains.  Remember, we have minimal
 interpreter and there's no fancy error handling mechanism.
-********************************************************************
+================================================================
 
 
 === Going Metacircular
