@@ -336,7 +336,7 @@ the inner `EVAL`:
         +----------------------------+
 ----
 
-If it is not obvious, try it with alternated environment.
+If it is not obvious, try it with an altered environment.
 For example, edit the `eval.lisp` created above
 to change the inner `EVAL` recognizes `KWOTE` instead of `QUOTE`.
 There's only one place to change:
@@ -364,8 +364,8 @@ Now, try it:
   => (X . Y)
 ----
 
-The two `QUOTE`{nbsp}'s are recognized by the outer `EVAL`, and the two
-`KWOTE`{nbsp}'s are recognized by the inner `EVAL`.  Furthermore,
+The two `QUOTE`{nbsp}s are recognized by the outer `EVAL`, and the two
+`KWOTE`{nbsp}s are recognized by the inner `EVAL`.  Furthermore,
 the `'` (`quote`) is recognized by Gauche.
 
 
