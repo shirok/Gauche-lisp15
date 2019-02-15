@@ -383,7 +383,7 @@ a function as a first-class citizen of the language, that you can
 construct it, pass it to another function, and return it from another
 funciton.  However, it has a flaw.
 
-Let's check the flaw and see if we can fix it.
+Let's try a failure case and see if we can fix it.
 
 Consider `MAPCAR` function, which takes a function and a list, and
 returns a list of results of the function applied to each element of the
