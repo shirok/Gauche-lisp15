@@ -1,0 +1,29 @@
+;;;
+;;; Implement FUNCTION and FUNARG
+;;;
+
+(use LISP1.5.mexpr)
+
+;; We load eval.mx first, then overwrite apply and eval.
+(load "examples/eval.mx")
+
+#!m-expr
+
+apply[fn;x;a] =
+  [atom[fn] -> [eq[fn;CAR] -> caar[x];
+                eq[fn;CDR] -> cdar[x];
+                eq[fn;CONS] -> cons[car[x];cadr[x]];
+                eq[fn;ATOM] -> atom[car[x]];
+                eq[fn;EQ] -> eq[car[x];cadr[x]];
+                T -> apply[eval[fn;a];x;a]];
+   eq[car[fn];FUNARG] -> apply[cadr[fn];x;caddr[fn]];
+   eq[car[fn];LAMBDA] -> eval[caddr[fn];pairlis[cadr[fn];x;a]];
+   eq[car[fn];LABEL] -> apply[caddr[fn];x;cons[cons[cadr[fn];caddr[fn]];a]]]
+
+eval[e;a] =
+  [atom[e] -> cdr[assoc[e;a]];
+   atom[car[e]] -> [eq[car[e];QUOTE] -> cadr[e];
+                    eq[car[e];FUNCTION] -> cons[FUNARG;cons[cadr[e];cons[a;NIL]]];
+                    eq[car[e];COND] -> evcon[cdr[e];a];
+                    T -> apply[car[e];evlis[cdr[e];a];a]];
+   T -> apply[car[e];evlis[cdr[e];a];a]]
