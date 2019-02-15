@@ -1,12 +1,12 @@
 // -*- coding: utf-8 -*-
 = LISP1.5 implementation on Gauche
 :sectnums:
+:toc:
 
 This is a fun project to implement LISP 1.5 as described in
 "LISP 1.5 Programmer's Manual".  It's not a complete LISP 1.5 environment
 emulator; instead, it is to get a glimpse of how it is constructed.
 
-:toc:
 
 == M-expressions
 
@@ -42,7 +42,6 @@ Module `LISP1.5.mexpr` implements parsers.  A procedure
 `parse-mexpr` takes a string or an input port, and parses one M-expression
 and returns an S-expression.
 
-[source,console]
 ----
 gosh> ,u LISP1.5.mexpr
 gosh> (parse-mexpr "cons[(A . B);C]")
@@ -61,7 +60,6 @@ S-expressions.
 
 You can write M-expression in Scheme source code using `#!m-expr` directive.
 
-[source,console]
 ----
 ;;
 ;; Scheme comments
@@ -78,7 +76,6 @@ function2[arg;...] = expression2
 The `#!m-expr` directive translates those M-expressions into
 a LISP1.5 `DEFINE` form:
 
-[source,lisp]
 ----
 (DEFINE
  ((FUNCTION1 (LAMBDA (ARG ...) EXPRESSION1))
@@ -115,7 +112,6 @@ load the `eval.mx` file.  Assuming you have
 load path set to the top directory of LISP1.5 source,
 you can say the following in the gosh REPL:
 
-[source,console]
 ----
 gosh> ,u LISP1.5.axioms
 gosh> ,l examples/eval.mx
@@ -125,7 +121,6 @@ gosh> ,l examples/eval.mx
 Or, you can start gosh with loading necessary modules
 (this assumes you're in the top directory of LISP1.5 source):
 
-[source,console]
 ----
 $ gosh -I. -u LISP1.5.axioms -l examples/eval.mx
 ----
@@ -134,7 +129,6 @@ On the gosh prompt, you can call `EVAL`.  The first argument
 is the S-expression to evaluate, and the second argument
 is the environment (assoc list of symbols and values):
 
-[source,lisp]
 ----
 gosh> (EVAL '(CONS (CAR (QUOTE (X . Y))) (QUOTE Z)) 'NIL)
 (X . Z)
@@ -147,7 +141,6 @@ The former one is recognized by Gauche.  The latter one is recognized by
 If you prefer, you can write M-expressions using
 read-time constructor `#,(m-expr "...")`:
 
-[source,lisp]
 ----
 gosh> (EVAL '#,(m-expr "cons[car[(X . Y)];Z]") 'NIL)
 (X . Z)
@@ -158,7 +151,6 @@ as a recursive funciton using `LABEL`, and calls it with
 two arguments, `(A B C)` and `(X Y Z)`:
 
 
-[source,lisp]
 ----
 gosh> (EVAL '#,(m-expr "label[append;lambda[[xs;r];\
                                [eq[xs;NIL] -> r;\
@@ -176,7 +168,6 @@ you have to pass them as the environment argument.
 The following example reverses a list, using the
 definition of `NULL`, `APPEND` and `REVERSE` given to the environment:
 
-[source,lisp]
 ----
 gosh> (EVAL '#,(m-expr "reverse[(A B C D E F G)]")
             '((NULL . #,(m-expr "lambda[[x];[eq[x;NIL] -> T; T -> F]]"))
@@ -194,13 +185,13 @@ We need to have the function `NULL` in the environment,
 since the one defined in `eval.mx` exists in the world of Gauche, and
 not visible from the world of `EVAL`.
 
+[TIP]
 .If you use undefined variable...
 ********************************************************************
 When you refer to an identifier that's neither one of the built-in
 primitive nor the one given in the environment, you'll get an error
 like the following:
 
-[source]
 ----
 *** ERROR: pair required, but got NIL
 Stack Trace:
@@ -250,7 +241,6 @@ In order to run `EVAL` inside `EVAL`, we need to prepare the definitions
 in `eval.mx` as an environment alist passed to outer `EVAL`.
 Run the following command in the toplevel source directory:
 
-[source, console]
 ----
 $ gosh tools/mexpr-env.scm examples/eval.mx
 ----
@@ -261,7 +251,6 @@ the `EVAL` expression, passing the copied alist as the environment
 (don't forget the quote before the alist!):
 
 
-[source, lisp]
 ----
 gosh> ,u LISP1.5.axioms
 gosh> ,l examples/eval.mx
@@ -279,16 +268,21 @@ create a definition of an auxiliary function `EVAL*`, which calls `EVAL`
 with the environment that has all the definitions in the given source file.
 Run `mexpr-env.scm` with `-e` option, and save the result in `lisp/eval.lisp`:
 
-[source, console]
 ----
 $ gosh tools/mexpr-env.scm -e examples/eval.mx > lisp/eval.lisp
 ----
+
+[TIP]
+********************************************************************
+Instead of manually executing `tools/mexpr-env.scm`, you can
+run the standard build process (`./configur && make`) and
+all the converted files are placed under `lisp/`.
+********************************************************************
 
 We use suffix `lisp` to indicate it is not a Scheme code (even though
 Gauche can understand it after using `LISP1.5.axioms`).
 The created `lisp/eval.lisp` looks as follows:
 
-[source, lisp]
 ----
 (DEFINE ((EVAL* (LAMBDA (X) (EVAL X '...<<environment defined in eval.mx>>...
 )))))
@@ -298,13 +292,9 @@ That is, it defines `EVAL*` which takes one LISP1.5 expression and
 evaluates it under the enviornment where all the definitions in `eval.mx`
 is visible.
 
-In case if you don't feel like typing the above command-line,
-you can just do `./configure && make` and `lisp/eval.lisp` is created.
-
 The created `eval.lisp` can be loaded to `gosh` after using `LISP1.5.axioms`.  
 Together with `examples/eval.mx`, you can run `EVAL` on top of `EVAL`:
 
-[source, console]
 ----
 $ gosh -I. -uLISP1.5.axioms -lexamples/eval.mx -leval-star.lisp
 gosh> (EVAL* '#,(m-expr"eval[(CONS (QUOTE X) (QUOTE Y));NIL]"))
@@ -338,7 +328,6 @@ For example, edit the `eval.lisp` created above
 to change the inner `EVAL` recognizes `KWOTE` instead of `QUOTE`.
 There's only one place to change:
 
-[source, lisp]
 ----
  (EVAL
   LAMBDA
@@ -357,7 +346,6 @@ There's only one place to change:
 
 Now, try it:
 
-[source, lisp]
 ----
 (EVAL* '(EVAL (QUOTE (CONS (KWOTE X) (KWOTE Y))) (QUOTE NIL)))
   => (X . Y)
@@ -385,16 +373,15 @@ Consider `MAPCAR` function, which takes a function and a list, and
 returns a list of results of the function applied to each element of the
 given list (that is, Scheme's `map` function):
 
-[source]
 ----
 mapcar[f;x] = [null[x] -> NIL;
                T -> cons[f[car[x]];mapcar[f;cdr[x]]]]
 ----
 
 It is in link:examples/mapcar.mx[].  You can't load it directly
-into Gauche, however.  Treating a list starting with `LAMBDA` is a
-feature of `EVAL`, not Gauche.  We have to make `EVAL` understand
-the above definition.
+into Gauche, however.  Treating a list starting with `LAMBDA` as
+a function is a feature of `EVAL`, not Gauche.  
+We have to make `EVAL` understand the above definition.
 
 We can use the same technique we used in the metacircular interpreter --
 that is, translate the definition of `MAPCAR` above into an enviroment
@@ -402,17 +389,15 @@ alist.  We also need the definition of `NULL`, so let's combine
 `eval.mx` together with `mapcar.mx`.  It can be done with the following
 command line:
 
-[source, console]
 ----
 $ gosh tools/mexpr-env.scm -e examples/eval.mx examples/mapcar.mx > lisp/mapcar.lisp
 ----
 
-Alternatively, run `./configure` then `make` in the toplevel source dirctory.
+Alternatively, run `./configure` then `make` in the toplevel source directory.
 
 Once you have `lisp/mapcar.lisp`, you can load it (after `examples/eval.mx`)
 and you can call `MAPCAR` inside `EVAL*`:
 
-[source]
 ----
 $ gosh -I. -uLISP1.5.axioms
 gosh> ,l examples/eval.mx
@@ -430,7 +415,6 @@ So far, so good.
 Now, Let's try nesting `MAPCAR`.  We'll do equivalent to the following
 Scheme code:
 
-[source, scheme]
 ----
 (map (lambda (x) (map (lambda (y) (cons x y)) '(p q r))) '(a b c))
   => (((a . p) (a . q) (a . r)) ((b . p) (b . q) (b . r)) ((c . p) (c . q) (c . r)))
@@ -438,7 +422,6 @@ Scheme code:
 
 Here's LISP1.5 version:
 
-[source, lisp]
 ----
 (EVAL* '(MAPCAR (QUOTE (LAMBDA (X)
                          (MAPCAR (QUOTE (LAMBDA (Y) (CONS X Y)))
@@ -451,7 +434,6 @@ Oops, what happened?  Let's look at the evaluation of the above `MAPCAR`
 step by step.  First, `EVAL*` calls `EVAL` with a bunch of definitions.
 Here, `e` is our outer `(MAPCAR ...)` expression, and `a` is the environment:
 
-[source]
 ----
 eval[e;a] =
   [atom[e] -> cdr[assoc[e;a]];
