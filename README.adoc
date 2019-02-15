@@ -525,7 +525,7 @@ outer `LAMBDA`.  But it is shadowed by the formal parameter of the
 `MAPCAR`.
 
 This is a well-known problem, and in lambda calculus it is avoided
-by _renaming_ the parameter name to avoid conflict.  In our case,
+by _renaming_ the parameter names to avoid conflict.  In our case,
 if we rename the formal parameter of inner `LAMBDA` to something
 different from the formal parameter of `MAPCAR`, it works as expected:
 
@@ -545,7 +545,7 @@ and renaming all formal parameters programatically to unique ones can be costly.
 LISP1.5 employed another way to solve this problem.  Instead of passing
 `LAMBDA` form quoted, it introduced another form, called `FUNCTION`.
 The rule is that whenever you pass a function as an argument,
-wrap it with `FUNCTION` instead of `QUOTE`.  With this rule,
+you wrap it with `FUNCTION` instead of `QUOTE`.  With this rule,
 our call of nested `MAPCAR` would look like this:
 
 ----
@@ -623,7 +623,7 @@ eval[e;a] =
    T -> apply[car[e];evlis[cdr[e];a];a]]
 ----
 
-The updated definition is in link:mx/funarg-lambda.ax[].  Using it,
+The updated definition is in link:mx/funarg-lambda.mx[].  Using it,
 calling `MAPCAR` becomes quite simpler:
 
 ----
