@@ -639,10 +639,10 @@ This idea is realized by Sussman and Steele in 1975, as a dialect
 Scheme.  The first paper of Scheme states it at the beginning:
 
 [quote, Gerald Jay Sussman and Guy Lewis Steele Jr., 'SCHEME: An Interpreter For Extended Lambda Calculus']
-----
+====
 SCHEME is essentially a full-funarg LISP.  LAMBDA expressions need
 not be QUOTEd, FUNCTIONed, or *FUNCTIONed when passed as arguments or
 returned as values; they will evaluate to closures themselves.
-----
+====
 
 ==========================================================
