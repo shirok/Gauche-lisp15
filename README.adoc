@@ -105,9 +105,9 @@ which we'll show you in the following chapters.
 
 === Running EVAL with minimal axioms
 
-Section 1.6 of "LISP 1.5 Programmier's Manual" is one of the pinnacles
+Section 1.6 of "LISP 1.5 Programmer's Manual" is one of the pinnacles
 of the document.  They show how to implement Lisp interpreter
-on top of Lisp systems.  They call it a "Universal LISP function".
+on top of Lisp systems.  They call it "a Universal LISP function".
 
 We write out their code in link:mx/eval.mx[].
 
@@ -173,7 +173,7 @@ gosh> (EVAL '#,(m-expr "label[append;lambda[[xs;r];\
 This interpreter only _knows_ the minimal 7 primitives:
 `CAR`, `CDR`, `CONS`, `ATOM`, `EQ`, `QUOTE`, and `COND`.
 To refer to anything other than that, 
-you have to pass them as the environment argument.
+you have to pass them in the environment argument.
 
 The following example reverses a list, using the
 definition of `NULL`, `APPEND` and `REVERSE` given to the environment:
@@ -191,12 +191,14 @@ gosh> (EVAL '#,(m-expr "reverse[(A B C D E F G)]")
 (G F D C B A)
 ----
 
+[NOTE]
+================================================================
 We need to have the function `NULL` in the environment, 
 since the one defined in `eval.mx` exists in the world of Gauche, and
 not visible from the world of `EVAL`.
+================================================================
 
 [TIP]
-.If you use undefined variable...
 ================================================================
 When you refer to an identifier that's neither one of the built-in
 primitive nor the one given in the environment, you'll get an error
