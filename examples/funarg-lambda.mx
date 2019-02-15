@@ -1,0 +1,18 @@
+;;;
+;;; Auto-FUNARG, like Scheme
+;;;
+
+(use LISP1.5.mexpr)
+
+;; We load funarg.mx, then overwrite eval.
+(load "examples/funarg.mx")
+
+#!m-expr
+
+eval[e;a] =
+  [atom[e] -> cdr[assoc[e;a]];
+   atom[car[e]] -> [eq[car[e];QUOTE] -> cadr[e];
+                    eq[car[e];LAMBDA] -> cons[FUNARG;cons[e;cons[a;NIL]]];
+                    eq[car[e];COND] -> evcon[cdr[e];a];
+                    T -> apply[car[e];evlis[cdr[e];a];a]];
+   T -> apply[car[e];evlis[cdr[e];a];a]]

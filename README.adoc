@@ -512,7 +512,7 @@ under the following environment:
 2. Argument for the outer `LAMBDA`
 3. Argument for the outer `MAPCAR`
 
-Now it is clear that why it didn't work.   When you write the
+Now it is clear why it didn't work.   When we write the
 initial nested `MAPCAR` form, we expect that `X` in the
 innermost expression `(CONS X Y)` refer to the formal parameter of the
 outer `LAMBDA`.  But it is shadowed by the formal parameter of the
@@ -534,7 +534,7 @@ different from the formal parameter of `MAPCAR`, it works as expected:
 1. We use `Z` to avoid confclit with `MAPCAR`{nbsp}'s `X`.
 
 However, we can't possibly avoid all potential conflict manually,
-and renaming all formal parameters to unique one can be costly.
+and renaming all formal parameters programatically to unique ones can be costly.
 
 LISP1.5 employed another way to solve this problem.  Instead of passing
 `LAMBDA` form quoted, it introduced another form, called `FUNCTION`.
@@ -601,3 +601,44 @@ gosh> (EVAL* '(MAPCAR (FUNCTION (LAMBDA (X)
 (((A . P) (A . Q) (A . R)) ((B . P) (B . Q) (B . R)) ((C . P) (C . Q) (C . R)))
 ----
 
+[NOTE]
+==========================================================
+Did you notice that you actually did't need `FUNCTION`?  Instead
+of introducing another form, you can let `EVAL` create `FUNARG`
+when it sees a bare `LAMBDA` form.  The definition will look like this:
+
+----
+eval[e;a] =
+  [atom[e] -> cdr[assoc[e;a]];
+   atom[car[e]] -> [eq[car[e];QUOTE] -> cadr[e];
+                    eq[car[e];LAMBDA] -> cons[FUNARG;cons[e;cons[a;NIL]]];
+                    eq[car[e];COND] -> evcon[cdr[e];a];
+                    T -> apply[car[e];evlis[cdr[e];a];a]];
+   T -> apply[car[e];evlis[cdr[e];a];a]]
+----
+
+The updated definition is in link:examples/funarg-lambda.ax[].  Using it,
+calling `MAPCAR` becomes quite simpler:
+
+----
+$ gosh -I. -u LISP1.5.axioms -l examples/funarg-lambda.mx
+gosh> ,l lisp/mapcar.lisp
+#t
+gosh> (EVAL* '(MAPCAR (LAMBDA (X)
+                        (MAPCAR (LAMBDA (Y) (CONS X Y))
+                                (QUOTE (P Q R))))
+                      (QUOTE (A B C))))
+(((A . P) (A . Q) (A . R)) ((B . P) (B . Q) (B . R)) ((C . P) (C . Q) (C . R)))
+----
+
+This idea is realized by Sussman and Steele in 1975, as a dialect
+Scheme.  The first paper of Scheme states it at the beginning:
+
+[quote, Gerald Jay Sussman and Guy Lewis Steele Jr., 'SCHEME: An Interpreter For Extended Lambda Calculus'
+----
+SCHEME is essentially a full-funarg LISP.  LAMBDA expressions need
+not be QUOTEd, FUNCTIONed, or *FUNCTIONed when passed as arguments or
+returned as values; they will evaluate to closures themselves.
+----
+
+==========================================================
