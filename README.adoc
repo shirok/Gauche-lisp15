@@ -770,7 +770,7 @@ Then we can define `$lisp\->scheme`, which converts LISP data structure
 into Scheme data structure, handy for debugging.
 We map `NIL` inside the structure into Scheme empty list, so that
 list structure can be printed naturally (instead of having `. NIL)`
-at the end.)
+at the end.)  We also convert non-LISP object into a string `#[...]`.
 
 [source, scheme]
 ----
@@ -778,7 +778,8 @@ at the end.)
   (define (rec obj)
     (cond [(eq? obj *NIL*) '()]
           [($atom? obj) (string->symbol (cadr (member *PNAME* (cdr obj))))]
-          [else (cons (rec (car obj)) (rec (cdr obj)))]))
+          [(pair? obj) (cons (rec (car obj)) (rec (cdr obj)))]
+          [else (format "#[~s]" obj)]))
   (if (eq? obj *NIL*)
     'NIL
     (rec obj)))
@@ -819,11 +820,69 @@ gosh> ($lisp->scheme *1)
 (A B C D E)
 ----
 
+Not all global values are stored in `APVAL` property.  LISP1.5 uses
+several different keys, depending on the type of the value.  `APVAL`
+is used when a symbol is used as a variable, and other keys are
+used when a symbol is used in the function position of the function call.
+
+.Value keys
+|===
+|`APVAL`
+|The value is a LISP object.
+
+|`EXPR`
+|The value is a LISP-defined function (LAMBDA or FUNARG form).  The arguments
+are evaluated before passed to it.
+
+|`FEXPR`
+|The value is a LISP-defined function (LAMBDA or FUNARG form).  The arguments
+are not evaluated, and passed as a single list.
+
+|`SUBR`
+|The value is a native function (written in assembly in the acutal LISP1.5,
+written in Gauche in our case).  The arguments are evaluated before
+passed it.
+
+|`FSUBR`
+|The value is a native function (written in assembly in the acutal LISP1.5,
+written in Gauche in our case).  The arguments
+are not evaluated, and passed as a single list.
+|===
+
+It is worth to mention that EXPR form receives fixed-number of arguments.
+If you want to write a function in LISP that takes variable number
+of arguments, you have to make it FEXPR, and evaluate the given list
+of arguments by yourself.
+
+[NOTE]
+============================================================
+Lisp dialects can be categorized to either Lisp-1 or Lisp-2.
+They are not versions, but about namespaces.
+
+Lisp-1 unifies function and variable namespaces, so in the 
+function call syntax, the function name is looked up the same
+way as variable look-up.  Scheme is Lisp-1.
+
+Lisp-2 have separate namespaces for functions and variables.
+You can use the argument named `list`, and it is treated separately
+from the function `list`.  When you need to call a function stored
+in a variable, you need to use an extra function, `funcall`.
+Common Lisp is Lisp-2.
+
+This design of having different keys for function call and
+variable makes LISP1.5 a Lisp-2.  However, interestingly,
+to call a function stored in a variable you can place the variable
+in the function position, without `funcall`, just like Scheme.
+So, coincidentally, we can say LISP1.5 is somewhat between Lisp-1 and Lisp-2.
+============================================================
 
 
 
+=== Runtime library in LISP
 
-== Building Runtime
+
+
+== Building The Machine
 
 In the previous section we showed we can run a complete LISP interpreter
 on top of a handful of primitive operators.
