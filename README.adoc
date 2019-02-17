@@ -650,7 +650,142 @@ returned as values; they will evaluate to closures themselves.
 ==========================================================
 
 
-=== Toplevel environment
+=== Symbols and toplevel environment
+
+So far, our `EVAL` requires any bindings to be provided
+via the environment argument.  Preprocessing the source with `mexpr-env.scm`
+was a remedy, but it's still troublesome.  So our next step is to
+add a toplevel environment, that keeps global bindings of `DEFINE`{}d
+symbols.
+
+The easiest way is to keep a global table, and when we search
+a variable binding via `ASSOC` (in the first branch of `EVAL`),
+we also look up the table when we didn't find any local bindings.
+
+However, LISP1.5 took a bit different approach. Since its symbol had
+a property list, or _plist_, which could hold arbitrary key-value
+pairs, so I suspect it was natural to store the global value
+of the symbol in its plist.  In fact, even the name of a symbol
+was merely one of its properties.  In LISP1.5, a symbol was just
+another type of list where the car of its head was marked
+with a special value (-1).
+
+[NOTE]
+====
+A property list (plist) associates keys to values, much like
+an associative list (alist),
+but its structure alternates keys and values.  For example, if
+key `A` has value `APPLE` and key `B` has a value `BANANA`, it can
+be represented with the following alist and plist, respectively:
+
+----
+;; alist
+((A . APPLE) (B . BANANA))
+
+;; plist
+(A APPLE B BANANA)
+----
+
+The number of pairs used are the same.  We're not sure why LISP1.5
+creators used plist for symbol properties, while they used
+alist for environment in `EVAL`.
+====
+
+In our minimal infrastructure (link:LISP1/5/axioms.scm[]) we just
+used Gauche symbols for LISP symbols.  It might be interesting,
+though, to reproduce what LISP1.5 did -- using a list to implement
+symbols!
+
+That is, from now on, our LISP symbol is a pair whose car is
+a special marker.  We use Gauche symbol `ATOM`.  From LISP world,
+a LISP symbol is an unbreakable unit (hence it is called _atom_), so
+the marker is never be visible.  Under the hood, in Gauche level,
+we can break an atom to access its internal structure.  It is as
+if LISP world deals with chemical reactions and Gauche world deals
+with nuclear reactions.
+
+In LISP symbols, its name is stored as a value of the property
+`PNAME`.  Since the property list is scanned by LISP function,
+we have to use LISP symbols as the property key.  For the name itself,
+we use a Scheme string; in real LISP1.5, the name is stored
+in a special way and treated specially (there wasn't a string type).
+
+Thus, LISP symbol `PNAME` has the following structure in Gauche:
+
+[source, scheme]
+----
+(define *PNAME* '#0=(ATOM #0# "PNAME"))
+----
+
+The `#0=` notation is a Scheme way to write a circular structure.
+The symbol `PNAME` has a propoerty list, in which the key `PNAME`
+is associated to the name `"PNAME"`.   Note that they LISP symbol
+`PNAME` itself doesn't have a global value.
+
+The global value of symbols is stored as a propery value with
+the key `APVAL`.  So we need the LISP symbol `APVAL`, which looks
+like the following in Gauche.  `APVAL` itself doesn't have a global
+value either:
+
+[source, scheme]
+----
+(define *APVAL* `(ATOM ,*PNAME* "APVAL"))
+----
+
+Once we have `PNAME` and `APVAL`, we can define `NIL`, whose name
+is `"NIL"` and value is itself.  We can't use `#0=` notation this time,
+since we have to construct the list using values of `*PNAME*` etc.
+
+[source, scheme]
+----
+(define *NIL* (rlet1 nil (list 'ATOM *PNAME* "NIL" *APVAL*)
+                (set! (cddddr nil) (list nil))))
+----
+
+Here's how `*NIL*` looks like in Gauche world.
+`#1=(ATOM #1# "PNAME")` is LISP symbol `PNAME`, and
+`(ATOM #1# "APVAL")` is LISP symbol `APVAL`.  Rememver we're looking
+at the internal of atoms -- from LISP world, this is just a symbol
+`NIL`.
+
+----
+gosh> *NIL*
+#0=(ATOM #1=(ATOM #1# "PNAME") "NIL" (ATOM #1# "APVAL") #0#)
+----
+
+We can define several symbols in this way.  See link:LISP1/5/runtime.scm[]
+for all the predefined symbols.
+
+Let's start building infrastructure.  Our LISP world only have symbols
+and cons cells so far (we'll add numbers later).  We can define `$atom?`
+and `$cons?` as follows (The `$` indicates it deals with LISP objects):
+
+[source, scheme]
+----
+(define ($atom? obj) (and (pair? obj) (eq? (car obj) 'ATOM)))
+(define ($cons? obj) (and (pair? obj) (not (eq? (car obj) 'ATOM))))
+----
+
+Then we can define `$lisp->scheme`, which converts LISP data structure
+into Scheme data structure, handy for debugging.
+We map `NIL` inside the structure into Scheme empty list, so that
+list structure can be printed naturally (instead of having `. NIL)`
+at the end.)
+
+[source, scheme]
+----
+(define ($lisp->scheme obj)
+  (define (rec obj)
+    (cond [(eq? obj *NIL*) '()]
+          [($atom? obj) (string->symbol (cadr (member *PNAME* (cdr obj))))]
+          [else (cons (rec (car obj)) (rec (cdr obj)))]))
+  (if (eq? obj *NIL*)
+    'NIL
+    (rec obj)))
+----
+
+
+
 
 
 
@@ -678,26 +813,26 @@ We start from the memory.
 
 IBM704, on which LISP was first developed, was a 36-bit machine.
 Its memory was basically an array of 36-bit words -- each address
-can hold a word, not 8-bit byte.
-Once read into a register, a word can be accessed with 4 fields,
+can hold a word, not an 8-bit byte.
+Each word can be broken up to 4 parts:
 3-bit _prefix_, 15-bit _decrement_, 3-bit _tag_, and 15-bit _address_.
 The memory can be fully accessed with 15-bit address, so each word
 can have two pointers.
-`CAR` and `CDR` came from _contends_of_address_part_of_register_ and
-_contents_of_decrement_part_of_register.  
+`CAR` and `CDR` came from _contends of address part of register_ and
+_contents of decrement part of register_.
 I suspect that this architecture of IBM704
-influenced the design of LISP using two-pointer cells (_cons_cells_)
+influenced the design of LISP using two-pointer cells (_cons cells_)
 for almost everything.
 
 To store characters, a word is viewed as a chunk of six 6-bit
 characters.  In LISP1.5, such words that are not used as two-pointer
-cells are called _full_word_.  A character string is represented
+cells are called _full word_.  A character string is represented
 as a list of such full words.  (Though LISP1.5 didn't have a string
 object -- list of full words only appears as an attribute value
 of atomic symbols).
 
 Distinguishing cons cells and full words are done by simply
-splitting memory into region; certain region only stores cons cells,
+splitting memory into regions; certain region only stores cons cells,
 and another region only sotres full words.  So you can tell which is which
 by looking at the address.
 
