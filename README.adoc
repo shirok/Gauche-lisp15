@@ -686,7 +686,7 @@ be represented with the following alist and plist, respectively:
 (A APPLE B BANANA)
 ----
 
-The number of pairs used are the same.  We're not sure why LISP1.5
+The number of cons cells used are the same.  We're not sure why LISP1.5
 creators used plist for symbol properties, while they used
 alist for environment in `EVAL`.
 ====
@@ -734,7 +734,7 @@ value either:
 
 Once we have `PNAME` and `APVAL`, we can define `NIL`, whose name
 is `"NIL"` and value is itself.  We can't use `#0=` notation this time,
-since we have to construct the list using values of `*PNAME*` etc.
+since we have to construct the list using values of `\*PNAME\*` etc.
 
 [source, scheme]
 ----
@@ -742,9 +742,9 @@ since we have to construct the list using values of `*PNAME*` etc.
                 (set! (cddddr nil) (list nil))))
 ----
 
-Here's how `*NIL*` looks like in Gauche world.
+Here's how `\*NIL\*` looks like in Gauche world.
 `#1=(ATOM #1# "PNAME")` is LISP symbol `PNAME`, and
-`(ATOM #1# "APVAL")` is LISP symbol `APVAL`.  Rememver we're looking
+`(ATOM #1# "APVAL")` is LISP symbol `APVAL`.  Remember we're looking
 at the internal of atoms -- from LISP world, this is just a symbol
 `NIL`.
 
@@ -766,7 +766,7 @@ and `$cons?` as follows (The `$` indicates it deals with LISP objects):
 (define ($cons? obj) (and (pair? obj) (not (eq? (car obj) 'ATOM))))
 ----
 
-Then we can define `$lisp->scheme`, which converts LISP data structure
+Then we can define `$lisp\->scheme`, which converts LISP data structure
 into Scheme data structure, handy for debugging.
 We map `NIL` inside the structure into Scheme empty list, so that
 list structure can be printed naturally (instead of having `. NIL)`
