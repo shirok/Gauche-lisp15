@@ -826,8 +826,10 @@ is used when a symbol is used as a variable, and other keys are
 used when a symbol is used in the function position of the function call.
 
 [%header,cols=2*]
-.Value keys
 |===
+| Key
+| Value
+
 |`APVAL`
 |The value is a LISP object.
 
