@@ -8,56 +8,49 @@
   (use srfi-42)
   (export make-memory the-mem
           *NIL* *PNAME* *APVAL* *EXPR* *FEXPR* *SUBR* *FSUBR* *T* *F*
-
-          $fixnum $fixnum-value $fixnum?
-          $cons $car $cdr $set-car! $set-cdr! $cell? $atom? $pair?
-          $null? $list $get-prop
-
-          $symbol $symbol-plist $symbol-pname $symbol-apval
-
-          $lisp->scheme $scheme->lisp)
-  )
+          *OBLIST* *OBLIST-SIZE*
+          
+          $full-word?
+          $cons? $symbol? $fixnum? $flonum?
+          ))
 (select-module LISP1.5.memory)
 
 ;; We don't really emulate IBM70x, but define a similar memory structure
-;; so that we can get the feeling of those past days.
-;;
-;; Main memory conists of three areas: Cells, bytes, and native objects.
-;;
-;; Cells are an array of 64bit word.  Each word is devided to two 32bit 
-;; word, the upper portion as "Address" field and the lower portion is
-;; "Decrement" field (these terms only have historical significance).
-;; Each field contains index to other objects.
-;;
-;; The index space is divided by its higher bits.
-;;
-;;    00xxxx....    Index to cell array
-;;    01xxxx....    Index to byte array
-;;    10xxxx....    Immediate fixnum value (30bit signed int)
-;;    11xxxx....    Index to native object array.
-;;                  (#xffffffff is reserved)
-;;
-;; Native object array has Gauche objects, and we store built-in primitives
-;; and flonums in it.
+;; so that we can get the feeling of those days.
+
+(define-constant *MEMORY-SIZE* 65536)   ;Number of words.  Data layout heavily
+                                        ;depends on this, so can't be change 
+                                        ;casually.
+(define-constant *NATIVE-SIZE* 2048)    ;Native vector size.
 
 (define-class <memory> ()
-  ((cells :init-keyword :cells)         ; u64vector
-   (num-cells :init-keyword :num-cells)
+  (;; Main memory is 65536 32-bit words.   Lower half is used for
+   ;; cons cells, upper half for full words.
+   (cells :init-value (make-u32vector *MEMORY-SIZE*))
 
-   (bytes :init-keyword :bytes)         ; u8vector
-   (num-bytes :init-keyword :num-bytes)
+   ;; Mark bits
+   (mark-bits :init-value (make-u8vector (/ *MEMORY-SIZE* 8)))
 
-   (natives :init-keyword :natives)     ; vector, auto extended
-
-   (freecell :init-keyword :freecell)   ; chain of free cells
-   (freebyte :init-value 0)             ; beginning of free bytes
-
-   (obtable :init-value (make-hash-table 'string=?)) ; name -> index
+   ;; Native object vector
+   (natives :init-value (make-vector *NATIVE-SIZE*))
    ))
 
-(define-constant *ATOM* #xffffffff)     ; marker of atomic symbol
+;; Atoms are represented as cells with special tag in its CAR.
+(define-constant *TAG-SYMBOL* #xffff)
+(define-constant *TAG-NATIVE* #xfffe)
+(define-constant *TAG-FIXNUM* #xfffd)
+(define-constant *TAG-FLONUM* #xfffc)
 
-;; First several cells are reserved for important symbols.
+;; The last part of full words area is reserved by the system, so that 
+;; above tags would never be a valid pointer.  We use two of reserved words
+;; for the anchors of freelists:
+(define-constant *FREELIST-CONS* #xffff)
+(define-constant *FREELIST-FULL* #xfffe)
+
+(define-constant *FULL-WORD-BASE* #x8000)
+(define-constant *FULL-WORD-CEIL* #xfffc)
+
+;; First several cells are pre-allocated for important symbols.
 (define-constant *NIL* 0)
 (define-constant *PNAME* 1)
 (define-constant *APVAL* 2)
@@ -67,18 +60,20 @@
 (define-constant *FSUBR* 6)
 (define-constant *T* 7)
 (define-constant *F* 8)
-(define-constant *NUM-RESERVERD-CELLS* 9)
+(define-constant *NUM-RESERVERD-SYMBOLS* 9)
 
-(define (make-memory num-cells num-bytes)
-  (define cells (make-u64vector num-cells))
-  (define bytes (make-u8vector num-bytes))
-  (define natives (make-vector 10000 (undefined)))
+;; Followed by pre-allocated cells are a list of symbols, customarily
+;; called oblist.  It is actually a list of lists; we hash the symbol
+;; name and chains the symbol in the corresponding sublist (bucket).
+;; We guarantee that the spine of oblist is allocated contiguously,
+;; thus we can directly pick the bucket from the hash value.
+(define-constant *OBLIST-SIZE* 211)
+(define-constant *OBLIST* *NUM-RESERVERD-SYMBOLS*)
+(define-constant *NUM-RESERVED-CELLS* (+ *OBLIST* *OBLIST-SIZE*))
 
-  ;; Build freelist
-  (dotimes [i (- num-cells 1)]
-    (set! (~ cells i) (+ i 1)))
-  (set! (~ cells (- num-cells 1)) *NIL*)
-
+;; Create a new memory.  Only freelists and OBLIST are initialized; the 
+;; predefined symbols must be initialized in symbol.scm
+(define (make-memory)
   (rlet1 mem (make <memory>
                :num-cells num-cells
                :cells cells
@@ -86,19 +81,48 @@
                :bytes bytes
                :freecell *NUM-RESERVERD-CELLS*
                :natives natives)
-    (init-predefined-symbols mem)))
+    (do-ec (:range i *NUM-RESERVED-CELLS* *FULL-WORD-BASE*)
+           (set! (~ mem'cells i) (+ i 1)))
+    (set! (~ mem'cells (- *FULL-WORD-BASE* 1)) *NIL*)
+    (set! (~ mem'cells *FREELIST-CONS*) *NUM-RESERVED-CELLS*)
+
+    (do-ec (:range i *FULL-WORD-BASE* *FULL-WORD-CEIL*)
+           (set! (~ mem'cells i) (+ i 1)))
+    (set! (~ mem'cells (- *FULL-WORD-CEIL* 1)) *NIL*)
+    (set! (~ mem'cells *FREELIST-FULL*) *FULL-WORD-BASE*)))
+
 
 ;; Our memory
-(define the-mem (make-parameter #f))
+(define the-mem (make-parameter (make-memory)))
 
-;; Procedures with '$' takes and/or returns index to the memory
+;; Basic accessors
+(define ($get-word ptr) (~ (the-mem)'cells ptr))
+(define ($put-word! ptr w) (set! (~ (the-mem)'cells ptr) w))
 
-(define-constant *CELL-PAGE* #x0000_0000)
-(define-constant *BYTE-PAGE* #x4000_0000)
-(define-constant *FIXNUM-PAGE* #x8000_0000)
-(define-constant *NATIVE-PAGE* #xc000_0000)
-(define-constant *PAGE-MASK* #xc000_0000)
-(define-constant *VALUE-MASK* (logand (lognot *PAGE-MASK*) #xffff_ffff))
+(define ($car ptr) (logand (~ (the-mem)'cells ptr) #xffff))
+(define ($cdr ptr) (ash (~ (the-mem)'cells ptr) -16))
+(define ($set-car! ptr val)
+  (update! (~ (the-mem)'cells ptr) (^c (copy-bit-field c val 16 32))))
+(define ($set-cdr! ptr val)
+  (update! (~ (the-mem)'cells ptr) (^c (copy-bit-field c val 0 16))))
+
+;; A basic type predicates
+(define ($full-word? ptr) (>= ptr *FULL-WORD-BASE*))
+
+(define ($cell? ptr) (and (not ($full-word? ptr))
+                          (not ($full-word? ($car ptr)))))
+(define ($atom? ptr) (and (not ($full-word? ptr))
+                          ($full-word? ($car ptr))))
+  
+(define ($symbol? ptr) (and (not ($full-word? ptr))
+                            (eqv? ($car ptr) *TAG-SYMBOL*)))
+(define ($native? ptr) (and (not ($full-word? ptr))
+                            (eqv? ($car ptr) *TAG-NATIVE*)))
+(define ($fixnum? ptr) (and (not ($full-word? ptr))
+                            (eqv? ($car ptr) *TAG-FIXNUM*)))
+(define ($flonum? ptr) (and (not ($full-word? ptr))
+                            (eqv? ($car ptr) *TAG-FLONUM*)))
+
 
 ;;
 ;; Fixnum
@@ -114,14 +138,7 @@
 (define ($fixnum? ind)
   (= (logand ind *PAGE-MASK*) *FIXNUM-PAGE*))
 
-;; cell handling.  cell-ind must be an index to the cell array.
-(define ($car cell-ind) (ash (~ (the-mem)'cells cell-ind) -32))
-(define ($cdr cell-ind) (logand (~ (the-mem)'cells cell-ind) #xffffffff))
 
-(define ($set-car! cell-ind val)
-  (update! (~ (the-mem)'cells cell-ind) (^c (copy-bit-field c val 32 64))))
-(define ($set-cdr! cell-ind val)
-  (update! (~ (the-mem)'cells cell-ind) (^c (copy-bit-field c val 0 32))))
 
 (define ($cons ca cd)
   (rlet1 ind (~ (the-mem) 'freecell)
@@ -129,9 +146,6 @@
       (error "Cell exhausted"))
     (set! (~ (the-mem)'freecell) ($cdr ind))
     (set! (~ (the-mem)'cells ind) (logior (ash ca 32) cd))))
-
-(define ($cell? ind)
-  (= (logand ind *PAGE-MASK*) *CELL-PAGE*))
 
 ;; A cell can be a pair or an atom
 (define ($atom? ind)

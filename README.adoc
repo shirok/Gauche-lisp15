@@ -825,6 +825,7 @@ several different keys, depending on the type of the value.  `APVAL`
 is used when a symbol is used as a variable, and other keys are
 used when a symbol is used in the function position of the function call.
 
+[%header,cols=2*]
 .Value keys
 |===
 |`APVAL`
@@ -877,12 +878,54 @@ So, coincidentally, we can say LISP1.5 is somewhat between Lisp-1 and Lisp-2.
 ============================================================
 
 
+=== Bridging worlds
 
-=== Runtime library in LISP
+As we did in our first version with link:LISP1/5/axioms.scm[axioms.scm] and
+link:mx/eval.mx[eval.mx], we want to keep Scheme code minimal
+and write the rest of the system in LISP itself.  We also want to
+write so-called standard libraries in LISP, too.
+
+When you write language X in the language X itself, you have to be
+epecially careful which _world_ you're dealing with.  Before proceeding,
+let's recap the layered structure we saw in the previous sections.
+
+* In `axioms.scm`, we defined minimal operators in Scheme to run LISP 1.5.
+It is the bottom world, or the Basement.  We can see all the mechanics
+that runs the LISP system from the Basenment.
+
+* Then we loaded `eval.mx`, which is written in LISP 1.5 itself.  At this
+time though, the functions in `eval.mx`, such as `NULL`, `ASSOC` or
+`EVAL`, are actually Gauche variables, bound to Gauche procedures;
+The `DEFINE` macro in `axioms.scm` translates LISP 1.5 definitions
+into Gauche definitons.  The functions in `eval.mx` doesn't know
+about Gauche, even though they themselves are running as Gauche procedures.
+We're in the Ground Floor.
+
+* Then we processed `eval.mx` with `mexpr-env.scm` to produce `eval.lisp`.
+It has `EVAL*`, which is still Ground Floor function.  It takes a LISP1.5
+expression and evaluates it.  The expression passed to `EVAL*` lives
+in the First Floor, above the Ground Floor.  As we've seen,
+the habitants in the First Floor knows nothing about the Ground Floor
+or the Basement, except the bindings passed as the environment.
+
+Now, in our revised runtime, difference between the Basement
+and the Ground Floor becomes wider: A LISP symbol is an unbreakable
+atom in the Ground Floor, but it's just a pair in the Basement.
+But we want to relax the abstraction barrier between the Grand Floor
+and the First Floor.  Here's why:
+
+We're going to write a revised `EVAL` that can deal with LISP symbols
+and global binding, so we write several supporting functions to
+set and get symbol's attributes.  Those functions live in the Ground Floor.
 
 
 
-== Building The Machine
+
+
+
+
+
+== Building a machine
 
 In the previous section we showed we can run a complete LISP interpreter
 on top of a handful of primitive operators.
