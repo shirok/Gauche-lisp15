@@ -37,3 +37,16 @@
     'NIL
     (rec obj)))
 
+(define *obtable* (hash-table-r7 eq-comparator
+                                 'NIL *NIL*
+                                 'PNAME *PNAME*
+                                 'APVAL *APVAL*))
+
+(define ($scheme->lisp obj)
+  (cond [(null? obj) *NIL*]
+        [(symbol? obj) (or (hash-table-get *obtable* obj #f)
+                           (rlet1 s (list 'ATOM *PNAME* (symbol->string obj))
+                             (hash-table-put! *obtable* obj s)))]
+        [(pair? obj) (cons ($scheme->lisp (car obj))
+                           ($scheme->lisp (cdr obj)))]
+        [else (errorf "Cannot convert ~s to LISP" obj)]))

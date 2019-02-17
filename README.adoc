@@ -784,8 +784,40 @@ at the end.)
     (rec obj)))
 ----
 
+It's also handy to have `$scheme\->lisp`, which converts Scheme
+structure into LISP structure.   One important point: We want to keep
+symbol's `eq`{nbsp}-ness, that is, LISP symbols with the same name
+can be compared with `eq`.  So we keep a hashtable to map Scheme
+symbol to LISP symbols.
 
+[source, scheme]
+----
+(define *obtable* (hash-table-r7 eq-comparator
+                                 'NIL *NIL*
+                                 'PNAME *PNAME*
+                                 'APVAL *APVAL*))
 
+(define ($scheme->lisp obj)
+  (cond [(null? obj) *NIL*]
+        [(symbol? obj) (or (hash-table-get *obtable* obj #f)
+                           (rlet1 s (list 'ATOM *PNAME* (symbol->string obj))
+                             (hash-table-put! *obtable* obj s)))]
+        [(pair? obj) (cons ($scheme->lisp (car obj))
+                           ($scheme->lisp (cdr obj)))]
+        [else (errorf "Cannot convert ~s to LISP" obj)]))
+----
+
+Let's try them.  Converting Scheme `(A B C D E)` into LISP results
+somewhat scary structure, but converting it back shows it's nothing
+to be afraid of:
+
+----
+gosh> ($scheme->lisp '(A B C D E))
+((ATOM #0=(ATOM #0# "PNAME") "A") (ATOM #0# "B") (ATOM #0# "C")
+ (ATOM #0# "D") (ATOM #0# "E") . #1=(ATOM #0# "NIL" (ATOM #0# "APVAL") #1#))
+gosh> ($lisp->scheme *1)
+(A B C D E)
+----
 
 
 
