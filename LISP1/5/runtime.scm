@@ -7,6 +7,7 @@
 
 (define-module LISP1.5.runtime
   (export CAR CDR CONS ATOM EQ ERROR DEFINE DEFLIST COND QUOTE
+          $GETPLIST $PUTPLIST $CALLSUBR
           $scheme->lisp $lisp->scheme)
   )
 (select-module LISP1.5.runtime)
@@ -92,6 +93,11 @@
     (begin (set-cdr! x p) *NIL*)
     ($error "Atom required, but got:" x)))
 
+;; Another 'vent' between the Grand Floor and the Basement.
+;; SUBR is Gauche procedure.
+(define ($CALLSUBR subr args)
+  (apply subr args))
+
 (define (DEFLIST bindings key)
   (unless ($atom? key)
     ($error "Atom required, but got:" key))
@@ -126,6 +132,7 @@
        (if (or (eq? t *NIL*) (eq? t *F*))
          (COND . more)
          expr))]))
+
 ;;;
 ;;; Make primitives visible from the First Floor
 ;;;
@@ -142,5 +149,4 @@
 (defattr ATOM 'SUBR ATOM)
 (defattr EQ 'SUBR EQ)
 (defattr ERROR 'SUBR ERROR)
-
 
