@@ -146,7 +146,7 @@
 ;;
 ;; as:
 ;;
-;;   (:= (FN ARG ...) EXPR)
+;;   (= (FN ARG ...) EXPR)
 ;;
 ;;
 ;; In LISP1.5, toplevel definitions are done with DEFINE form, as this:
@@ -155,9 +155,9 @@
 ;;
 ;; So we have to collect those toplevel definitions:
 ;;
-;;   (:= (FN1 ARG ...) EXPR1)
-;;   (:= (FN2 ARG ...) EXPR2)
-;;   (:= (FN3 ARG ...) EXPR3)
+;;   (= (FN1 ARG ...) EXPR1)
+;;   (= (FN2 ARG ...) EXPR2)
+;;   (= (FN3 ARG ...) EXPR3)
 ;;
 ;; and convert them into:
 ;;
@@ -176,7 +176,7 @@
        [follow ($optional ($seq ($. #\=) %form))]
        ($return (let1 pre (if args (cons head args) head)
                   (if follow
-                    `(:= ,pre ,follow)
+                    `(= ,pre ,follow)
                     pre)))))
 
 (define trace-mexpr-parser (make-parameter #f))
@@ -212,10 +212,10 @@
 
 (define-reader-directive 'm-expr
   (^[sym port ctx]
-    ;; Translate ((:= (fn arg ...) expr) ...) into
+    ;; Translate ((= (fn arg ...) expr) ...) into
     ;; (DEFINE ((fn (lambda (arg ...) expr)) ...))
     (define (xlate-1 f)
       (match f
-        [(':= (fn arg ...) expr) `(,fn (LAMBDA ,arg ,expr))]
+        [('= (fn arg ...) expr) `(,fn (LAMBDA ,arg ,expr))]
         [expr (error "Invalid definition: " expr)]))
     `(DEFINE ,(map xlate-1 (parse-mexprs port)))))
