@@ -15,17 +15,6 @@
 (use LISP1.5.memory)
 (test-module 'LISP1.5.memory)
 
-(parameterize ((the-mem (make-memory 1000 1000)))
-  (test* "memory" '(NIL (1 2 -3) PNAME T)
-         ($lisp->scheme ($list *NIL* 
-                               ($list ($fixnum 1)
-                                      ($fixnum 2)
-                                      ($fixnum -3))
-                               *PNAME* *T*)))
-  (test* "round-trip" '(A B (1 . -1) . C)
-         ($lisp->scheme ($scheme->lisp '(A B (1 . -1) . C))))
-  )
-
 (use LISP1.5.mexpr)
 (test-module 'LISP1.5.mexpr)
 
@@ -55,11 +44,11 @@
 (test-m "equal[x;y] = [atom[x] -> [atom[y] -> eq[x;y]; T -> F];\
                       equal[car[x]; car[y]] -> equal[cdr[x]; cdr[y]];\
                       T -> F]"
-        '(:= (EQUAL X Y)
-             (COND ((ATOM X) (COND ((ATOM Y) (EQ X Y))
-                                   ((QUOTE T) (QUOTE F))))
-                   ((EQUAL (CAR X) (CAR Y)) (EQUAL (CDR X) (CDR Y)))
-                   ((QUOTE T) (QUOTE F)))))
+        '(= (EQUAL X Y)
+            (COND ((ATOM X) (COND ((ATOM Y) (EQ X Y))
+                                  ((QUOTE T) (QUOTE F))))
+                  ((EQUAL (CAR X) (CAR Y)) (EQUAL (CDR X) (CDR Y)))
+                  ((QUOTE T) (QUOTE F)))))
 
 (use LISP1.5)
 (test-module 'LISP1.5)
@@ -67,7 +56,7 @@
 (test-section "Eval")
 
 (test* "Loading eval.mx" #t
-       (load "examples/eval.mx"))
+       (load "mx/eval.mx"))
 (test* "Calling APPLY" '(A B C X Y Z)
        (APPLY '#,(m-expr "label[apnd;lambda[[xs;r];\
                                  [eq[xs;NIL] -> r;\
