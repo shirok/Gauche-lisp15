@@ -148,7 +148,6 @@
 ;;
 ;;   (= (FN ARG ...) EXPR)
 ;;
-;;
 ;; In LISP1.5, toplevel definitions are done with DEFINE form, as this:
 ;;
 ;;   (DEFINE ((VAR EXPR) ...))
@@ -161,9 +160,9 @@
 ;;
 ;; and convert them into:
 ;;
-;;   (DEFINE ((FN1 (LAMBDA (ARG ...) EXPR1)) 
-;;            (FN2 (LAMBDA (ARG ...) EXPR2)) 
-;;            (FN3 (LAMBDA (ARG ...) EXPR3))))
+;;   (DEFINE (QUOTE ((FN1 (LAMBDA (ARG ...) EXPR1)) 
+;;                   (FN2 (LAMBDA (ARG ...) EXPR2)) 
+;;                   (FN3 (LAMBDA (ARG ...) EXPR3)))))
 ;;
 ;; This transformation is better be done in higher-level construct
 ;; than in the parser.
@@ -218,4 +217,4 @@
       (match f
         [('= (fn arg ...) expr) `(,fn (LAMBDA ,arg ,expr))]
         [expr (error "Invalid definition: " expr)]))
-    `(DEFINE ,(map xlate-1 (parse-mexprs port)))))
+    `(DEFINE (QUOTE ,(map xlate-1 (parse-mexprs port))))))

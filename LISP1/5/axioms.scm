@@ -25,6 +25,6 @@
 ;; DEFINE is not exactly an axiom, but more like a directive to set up
 ;; the toplevel environment.
 (define-syntax DEFINE
-  (syntax-rules (LAMBDA)
-    [(_ ((var (LAMBDA args expr)) ...))
+  (syntax-rules (QUOTE LAMBDA)
+    [(_ (QUOTE ((var (LAMBDA args expr)) ...)))
      (begin (define var (lambda args expr)) ...)]))
