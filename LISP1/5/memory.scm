@@ -10,8 +10,8 @@
           *NIL* *PNAME* *APVAL* *EXPR* *FEXPR* *SUBR* *FSUBR* *T* *F*
           *OBLIST* *OBLIST-SIZE*
           
-          $full-word?
-          $cons? $symbol? $fixnum? $flonum?
+          ;;$full-word?
+          ;;$cons? $symbol? $fixnum? $flonum?
           ))
 (select-module LISP1.5.memory)
 
@@ -74,13 +74,7 @@
 ;; Create a new memory.  Only freelists and OBLIST are initialized; the 
 ;; predefined symbols must be initialized in symbol.scm
 (define (make-memory)
-  (rlet1 mem (make <memory>
-               :num-cells num-cells
-               :cells cells
-               :num-bytes num-bytes
-               :bytes bytes
-               :freecell *NUM-RESERVERD-CELLS*
-               :natives natives)
+  (rlet1 mem (make <memory>)
     (do-ec (:range i *NUM-RESERVED-CELLS* *FULL-WORD-BASE*)
            (set! (~ mem'cells i) (+ i 1)))
     (set! (~ mem'cells (- *FULL-WORD-BASE* 1)) *NIL*)
@@ -123,7 +117,7 @@
 (define ($flonum? ptr) (and (not ($full-word? ptr))
                             (eqv? ($car ptr) *TAG-FLONUM*)))
 
-
+#|
 ;;
 ;; Fixnum
 ;;
@@ -271,3 +265,4 @@
                             ($scheme->lisp (cdr obj)))]
         [else (error "Can't convert ~s to LISP object" obj)]))
 
+|#
