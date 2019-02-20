@@ -1,3 +1,4 @@
+;; -*- coding:utf-8 -*-
 ;;;
 ;;; LISP1.5.mexpr - M-expression parser
 ;;;
@@ -23,16 +24,19 @@
 ;;     (number <number>)
 ;;     (atom <name>)      ; atomic symbol; <name> is all uppercase
 ;;     (ident <name>)     ; identifier; <name> is all uppercase
-;;     LAMBDA
+;;     LAMBDA             ; λ is also recognized.
 ;;     LABEL
-;;     ->
+;;     ->                 ; → is also recognized.
+;;     =>                 ; cond extension.  ⇒ is also recognized
+;;     =                  ; definition
+;;     :=                 ; used in PROG
+;;     ::                 ; fexpr definition (our extension)
 ;;     #\[
 ;;     #\]
 ;;     #\(
 ;;     #\)
 ;;     #\.
 ;;     #\;
-;;     #\=
 ;;
 ;;  Whitespaces and comments are consumed and discarded.
 
@@ -52,13 +56,17 @@
 (define %word ($lift make-word ($many-chars #[0-9a-zA-Z] 1)))
 
 ;; A few reserved word
-(define %lambda ($seq ($."lambda") ($return 'LAMBDA)))
+(define %lambda ($seq ($or ($."lambda") ($. #\λ)) ($return 'LAMBDA)))
 (define %label  ($seq ($."label") ($return 'LABEL)))
-(define %-> ($seq ($or ($."->") ($. #\u2192)) ($return '->))) ; right arrow
+(define %-> ($seq ($or ($."->") ($. #\→)) ($return '->)))
+(define %=> ($seq ($or ($."=>") ($. #\⇒)) ($return '=>)))
+(define %:= ($seq ($.":=") ($return '|:=|)))
+(define %:: ($seq ($."::") ($return '|::|)))
+(define %=  ($seq ($. #\=) ($return '=)))
 
 (define %token
   ($between %ws
-            ($or %-> %lambda %label %word ($. #[\[\]\(\).\;=]))
+            ($or %-> %=> %:= %:: %= %lambda %label %word ($. #[\[\]\(\).\;]))
             %ws))
 
 (define (tokenize input)
@@ -148,34 +156,28 @@
 ;;
 ;;   (= (FN ARG ...) EXPR)
 ;;
-;; In LISP1.5, toplevel definitions are done with DEFINE form, as this:
+;; Also, we extend M-expr to allow defining FEXPR in the following
+;; syntax:
 ;;
-;;   (DEFINE ((VAR EXPR) ...))
+;;   fn[args;env] : expr
 ;;
-;; So we have to collect those toplevel definitions:
+;; It is pased as:
 ;;
-;;   (= (FN1 ARG ...) EXPR1)
-;;   (= (FN2 ARG ...) EXPR2)
-;;   (= (FN3 ARG ...) EXPR3)
+;;   (:: (FN ARGS ENV) EXPR)
 ;;
-;; and convert them into:
-;;
-;;   (DEFINE (QUOTE ((FN1 (LAMBDA (ARG ...) EXPR1)) 
-;;                   (FN2 (LAMBDA (ARG ...) EXPR2)) 
-;;                   (FN3 (LAMBDA (ARG ...) EXPR3)))))
-;;
-;; This transformation is better be done in higher-level construct
-;; than in the parser.
+
+(define %def ($or ($satisfy (cut eq? '= <>) '=)
+                  ($satisfy (cut eq? '|::| <>) '|::|)))
 
 (define %funcall-or-variable
   ($do [head %function]
        [args ($optional ($between ($. #\[)
                                   ($sep-by %form ($. #\;))
                                   ($. #\])))]
-       [follow ($optional ($seq ($. #\=) %form))]
+       [follow ($optional ($lift cons %def %form))]
        ($return (let1 pre (if args (cons head args) head)
                   (if follow
-                    `(= ,pre ,follow)
+                    `(,(car follow) ,pre ,(cdr follow))
                     pre)))))
 
 (define trace-mexpr-parser (make-parameter #f))
@@ -196,23 +198,53 @@
 ;; To embed M-expr within Scheme, use #,(m-expr "M-expr")
 (define-reader-ctor 'm-expr (^s (parse-mexpr s)))
 
+;;;
+;;; The m-expr reder directive
+;;;
+
 ;; This allows source file to be written in M-expression
 ;;
 ;;   (use LISP1.5.mexpr)
 ;;   #!m-expr
 ;;   ... code written in M-expression ...
 ;;
-;; The M-expressions after #!m-expr are collected and translated into
-;; a DEFINE form.
-;;
 ;; NB: This module does not defines any LISP1.5 primitive syntax.
 ;; To load m-expr that uses LISP1.5 syntax, you want to use other 
 ;; modules such as LISP1.5.axiom.
 
+;; In LISP1.5, toplevel definitions are done with DEFINE form, as this:
+;;
+;;   (DEFINE ((VAR EXPR) ...))
+;;
+;; So we have to collect those toplevel definitions:
+;;
+;;   (= (FN1 ARG ...) EXPR1)
+;;   (= (FN2 ARG ...) EXPR2)
+;;   (= (FN3 ARG ...) EXPR3)
+;;
+;; and convert them into:
+;;
+;;   (DEFINE (QUOTE ((FN1 (LAMBDA (ARG ...) EXPR1)) 
+;;                   (FN2 (LAMBDA (ARG ...) EXPR2)) 
+;;                   (FN3 (LAMBDA (ARG ...) EXPR3)))))
+;;
+;; This transformation is better be done in higher-level construct
+;; than in the parser.
+;;
+;; We also collect FEXPR definitions (our extension)
+;;
+;;   (: (FN1 ARGS ENV) EXPR1)
+;;   ...
+;;
+;; into:
+;;
+;;   (DEFLIST (QUOTE ((FN1 (LAMBDA (ARGS ENV) EXPR1))) ...)
+;;            (QUOTE FEXPR))
+;;
+;;
+
 (define-reader-directive 'm-expr
   (^[sym port ctx]
-    ;; Translate ((= (fn arg ...) expr) ...) into
-    ;; (DEFINE ((fn (lambda (arg ...) expr)) ...))
     (define (xlate-1 f)
       (match f
         [('= (fn arg ...) expr) `(,fn (LAMBDA ,arg ,expr))]
