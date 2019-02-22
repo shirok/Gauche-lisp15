@@ -74,6 +74,47 @@
                                        T -> append[reverse[cdr[xs]];cons[car[xs];NIL]]]]"))
                )))
 
+(define-module metacircular-test1 
+  (use LISP1.5.axioms)
+  (load "mx/eval.mx" :environment (current-module))
+  (load "lisp/eval.lisp" :environment (current-module)))
+(test* "Metacircular (axioms)" '(X . Y)
+       (with-module metacircular-test1
+         (EVAL* '#,(m-expr"eval[(CONS (QUOTE X) (QUOTE Y));NIL]"))))
+
+(define-module metacircular-test2 
+  (use LISP1.5.axioms)
+  (load "mx/eval.mx" :environment (current-module))
+  (load "lisp/mapcar.lisp" :environment (current-module)))
+(test* "Metacircular (mapcar, no function)" '((A . Y) (B . Y) (C . Y))
+       (with-module metacircular-test2
+         (EVAL* '(MAPCAR (QUOTE (LAMBDA (X) (CONS X (QUOTE Y))))
+                         (QUOTE (A B C))))))
+(test* "Metacircular (mapcar, no function, nested)"
+       '((((P Q R) . P) ((Q R) . Q) ((R) . R))
+         (((P Q R) . P) ((Q R) . Q) ((R) . R))
+         (((P Q R) . P) ((Q R) . Q) ((R) . R)))
+       (with-module metacircular-test2
+         (EVAL* '(MAPCAR (QUOTE (LAMBDA (X)
+                                        (MAPCAR (QUOTE (LAMBDA (Y) (CONS X Y)))
+                                                (QUOTE (P Q R)))))
+                         (QUOTE (A B C))))))
+
+(define-module metacircular-test3
+  (use LISP1.5.axioms)
+  (load "mx/funarg.mx" :environment (current-module))
+  (load "lisp/mapcar.lisp" :environment (current-module)))
+(test* "Metacircular (mapcar, with function)"
+       '(((A . P) (A . Q) (A . R))
+         ((B . P) (B . Q) (B . R))
+         ((C . P) (C . Q) (C . R)))
+       (with-module metacircular-test3
+         (EVAL* '(MAPCAR (FUNCTION
+                          (LAMBDA (X)
+                                  (MAPCAR (FUNCTION (LAMBDA (Y) (CONS X Y)))
+                                          (QUOTE (P Q R)))))
+                         (QUOTE (A B C))))))
+
 ;; If you don't want `gosh' to exit with nonzero status even if
 ;; the test fails, pass #f to :exit-on-failure.
 (test-end :exit-on-failure #t)
