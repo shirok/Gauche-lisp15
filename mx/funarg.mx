@@ -5,7 +5,7 @@
 (use LISP1.5.mexpr)
 
 ;; We load eval.mx first, then overwrite apply and eval.
-(load "examples/eval.mx")
+(load "mx/eval.mx")
 
 #!m-expr
 
