@@ -53,7 +53,9 @@ However, when we read papers of that era, we see M-expressions
 everywhere.  Now that we can write M-expressions in a text file,
 let's make the compiler understand it directly!
 
-=== M-expression syntax summary
+=== M-expression syntax
+
+Here's a summary of M-expression sytnax:
 
 - Identifiers are in all lowercase.  Literal symbols are in all uppercase.
   No `quote` in M-expression.  Literal list can be written using parentheses,
@@ -82,13 +84,89 @@ becomes `(LAMBDA (ARG ...) EXPR)`.
 - Local recursive function `label[name;lambda[[arg;...];expr]]`
 becomes `(LABEL NAME (LAMBDA (ARG ...) EXPR))`.
 
-Interestingly, there seemed no direct translation of definitions.
+=== A bit of extensions
 
+Interestingly, there seemed no direct translation of definition
+syntax `name[arg;...] = expr` into an S-expression.
+he toplevel definitions, as well as toplevel function calls,
+have slightly different rules when punched into cards.
 
-We also add this extension:
+For our purpse, we want to treat M-expressions as our source code,
+and the parser returns a single S-expression as a result.
+So we introduce our own extension.
 
-- A hash sign `#` to the end of line is a comment.  We avoid `;`, for
-  it is used as a separator.
+----
+(TOPLEVEL <toplevel-form> ...)
+
+<toplevel-form> : (= <expr> <expr> [<key>])
+                | <expr>
+----
+
+When read, the entire source is wrapped in `TOPLEVEL` form.
+Inside it, each toplevel form becomes either
+`(= <expr> <expr>)` (in case of definition) or just an `<expr>`
+in case of toplevel function call.  This `TOPLEVEL` form is
+merely our parser's way to wrap the result, and its interpretation
+depends on the caller of the parser; it doesn't mean we'll have
+a special form called `TOPLEVEL`.
+
+[NOTE]
+================================================================
+In the actual use case, all definitions in a program were
+gathered and translated into the following form to be punched:
+
+----
+DEFINE ((
+(NAME (LAMBDA (ARG ...) EXPR))
+(NAME (LAMBDA (ARG ...) EXPR))
+...
+))
+----
+
+This is actially a special syntax to execute a function call on toplevel.
+It takes a form `FUNC (ARG ...)`, where `ARG`{nbsp}s are implicitly
+quoted.  The function `DEFINE` takes one argument, which is
+a form of `((NAME LAMBDA-EXPR) ...)`.
+
+If you want to perform some calculation, you list the call of
+the function after the `DEFINE` form, as follows:
+
+----
+DEFINE ((
+ ... definitions ..
+(DOIT (LABMDA (ARG ...) EXPR))   
+))
+
+DOIT (ARG ...)
+----
+
+Examples are shown in p.15 and pp.48-51 of LISP1.5 Programmer's
+Manual.
+================================================================
+
+We also add these extensions, for the convenience.
+
+- There's no comment syntax defined in M-expressions, since
+it's for humans to read, you can freely intermix code
+and natural language descriptions.  For our purpose,
+we make a hash sign `#` to the end of line is a comment.
+(We avoid `;`, for it is used as a separator.)
+
+- In Appendix B of LISP 1.5 Programmer's Manual, they use
+a pseudo extension of conditional expression for concise
+explanation.  Such extension didn't formalized and the actual
+code is written in assembly language instead of M-expressions.
+But for our purpose it'll be convnient to support such extension.
+It is to allow a conditiona expression to have the following clause:
+----
+test \=> fun
+
+where fun can be an expression that yield a function,
+or a LAMBDA form.
+----
+First, `test` is evaluated, and if it yiels a true value
+(a value neither `NIL` nor `F`), the value is applied to
+the function.  It's the same as Scheme's `cond` feature with `\=>`.
 
 
 === Calling M-expression parser
