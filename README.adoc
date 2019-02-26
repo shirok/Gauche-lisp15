@@ -20,9 +20,38 @@ toc::[]
 
 == M-expressions
 
-Back then, M-expression was for human to write and read programs on paper,
-but you had to manually translate it to S-expression then punch the cards.
-Now you can make the computer understand M-expression directly!
+Let's begin with M-expressions.
+
+When LISP was a toddler, it wasn't wrapped with so many parentheses
+which would later become its most memorable characteristic.
+At least in front of people's eyes.
+
+An early LISP program looked like this:
+
+----
+member[a;l] = [null[l] → NIL;
+               eq[a;car[l]] → l;
+               T → member[a;cdr[l]]]
+----
+
+LISP programmers back then read and wrote programs in this form,
+_on paper_.  Yes, program sources are meant to be read by humans.
+In order for computers to understand programs, one must prepare
+a deck of cards, each of which had holes punched according to
+link:https://en.wikipedia.org/wiki/BCD_(character_encoding)[BCD character code].
+The character set didn't have many punctuations and it was impossible
+to punch M-expressions directly.  Instead, people translates
+M-expressions into S-expressions, which is already used
+to describe nested list structures.  In other words, people
+feed the machine the internal representation of syntax tree
+directly.
+
+Eventually, people got used to write programs in S-expresions
+and M-expressions were faded into oblivion.
+
+However, when we read papers of that era, we see M-expressions
+everywhere.  Now that we can write M-expressions in a text file,
+let's make the compiler understand it directly!
 
 === M-expression syntax summary
 
@@ -39,6 +68,22 @@ itself doesn't have a value -- it must be called with arguments to take effect.
 - Local recursive function can be written as `label[name;lambda[[arg;...];expr]]`,
 where you can use `name` in the `expr` to refer to itself.
 - In toplevel, you can define a function by `name[arg;...] = expr`.
+
+An M-expression can be translated into an S-expression as follows:
+
+- Literal data (symbols and lists) are embedded in the output
+by `(QUOTE <literal>)`.
+- Function call `fn[arg1;arg2;...]` becomes (FN ARG1 ARG2 ...)`.
+We didn't have lower case characters on computers back then.
+- Conditional `[test1 \-> expr1; test2 \-> expr2;...]` becomes
+`(COND (TEST1 EXPR1) (TEST2 EXPR2) ...)`.
+- Literal function `lambda[[arg;..];expr]`
+becomes `(LAMBDA (ARG ...) EXPR)`.
+- Local recursive function `label[name;lambda[[arg;...];expr]]`
+becomes `(LABEL NAME (LAMBDA (ARG ...) EXPR))`.
+
+Interestingly, there seemed no direct translation of definitions.
+
 
 We also add this extension:
 
