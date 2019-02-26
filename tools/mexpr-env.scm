@@ -31,7 +31,7 @@
     (when (null? files) (usage))
     (dolist [file files]
       (load file :paths '(".")))
-    (when emit-eval* (display "(DEFINE ((EVAL* (LAMBDA (X) (EVAL X (QUOTE "))
+    (when emit-eval* (display "(DEFINE (QUOTE ((EVAL* (LAMBDA (X) (EVAL X (QUOTE "))
     (pprint (concatenate *defs*))
-    (when emit-eval* (print "))))))"))
+    (when emit-eval* (print ")))))))"))
     0))
