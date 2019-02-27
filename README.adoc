@@ -20,9 +20,7 @@ toc::[]
 
 == M-expressions
 
-Let's begin with M-expressions.
-
-When LISP was a toddler, it wasn't wrapped with so many parentheses
+When LISP was in its infancy, it wasn't wrapped with so many parentheses
 which would later become its most memorable characteristic.
 At least in front of people's eyes.
 
@@ -34,16 +32,23 @@ member[a;l] = [null[l] → NIL;
                T → member[a;cdr[l]]]
 ----
 
+S-expressions are used to denote _data_, which was
+basically nested list structures.
+
+----
+member[C;(A B C D E)] => (C D E)
+----
+
 LISP programmers back then read and wrote programs in this form,
-_on paper_.  Yes, program sources are meant to be read by humans.
-In order for computers to understand programs, one must prepare
+_on paper_.  Yes, program sources were meant to be read by humans.
+In order for computers to understand programs, one must have prepared
 a deck of cards, each of which had holes punched according to
 link:https://en.wikipedia.org/wiki/BCD_(character_encoding)[BCD character code].
 The character set didn't have many punctuations and it was impossible
-to punch M-expressions directly.  Instead, people translates
-M-expressions into S-expressions, which is already used
+to punch M-expressions directly.  Instead, people translated
+M-expressions into S-expressions, which was already used
 to describe nested list structures.  In other words, people
-feed the machine the internal representation of syntax tree
+fed the machine the internal representation of syntax tree
 directly.
 
 Eventually, people got used to write programs in S-expresions
@@ -51,7 +56,7 @@ and M-expressions were faded into oblivion.
 
 However, when we read papers of that era, we see M-expressions
 everywhere.  Now that we can write M-expressions in a text file,
-let's make the compiler understand it directly!
+let's make the computer understand it directly!
 
 === M-expression syntax
 
