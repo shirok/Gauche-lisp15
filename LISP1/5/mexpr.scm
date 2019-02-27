@@ -30,7 +30,6 @@
 ;;     =>                 ; cond extension.  ⇒ is also recognized
 ;;     =                  ; definition
 ;;     :=                 ; used in PROG
-;;     ::                 ; fexpr definition (our extension)
 ;;     #\[
 ;;     #\]
 ;;     #\(
@@ -61,12 +60,11 @@
 (define %-> ($seq ($or ($."->") ($. #\→)) ($return '->)))
 (define %=> ($seq ($or ($."=>") ($. #\⇒)) ($return '=>)))
 (define %:= ($seq ($.":=") ($return '|:=|)))
-(define %:: ($seq ($."::") ($return '|::|)))
 (define %=  ($seq ($. #\=) ($return '=)))
 
 (define %token
   ($between %ws
-            ($or %-> %=> %:= %:: %= %lambda %label %word ($. #[\[\]\(\).\;]))
+            ($or %-> %=> %:= %= %lambda %label %word ($. #[\[\]\(\).\;]))
             %ws))
 
 (define (tokenize input)
@@ -156,18 +154,8 @@
 ;;
 ;;   (= (FN ARG ...) EXPR)
 ;;
-;; Also, we extend M-expr to allow defining FEXPR in the following
-;; syntax:
-;;
-;;   fn[args;env] : expr
-;;
-;; It is pased as:
-;;
-;;   (:: (FN ARGS ENV) EXPR)
-;;
 
-(define %def ($or ($satisfy (cut eq? '= <>) '=)
-                  ($satisfy (cut eq? '|::| <>) '|::|)))
+(define %def ($satisfy (cut eq? '= <>) '=))
 
 (define %funcall-or-variable
   ($do [head %function]
@@ -199,7 +187,7 @@
 (define-reader-ctor 'm-expr (^s (parse-mexpr s)))
 
 ;;;
-;;; The m-expr reder directive
+;;; The m-expr reader directive
 ;;;
 
 ;; This allows source file to be written in M-expression
@@ -212,7 +200,7 @@
 ;; To load m-expr that uses LISP1.5 syntax, you want to use other 
 ;; modules such as LISP1.5.axiom.
 
-;; In LISP1.5, toplevel definitions are done with DEFINE form, as this:
+;; LISP1.5 employs special treatment on toplevel forms.
 ;;
 ;;   (DEFINE ((VAR EXPR) ...))
 ;;
