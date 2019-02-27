@@ -18,10 +18,10 @@
 
 (define *defs* '())
 
-(define-syntax DEFINE
-  (syntax-rules (QUOTE)
-    [(_ (QUOTE ((var expr) ...)))
-     (begin (push! *defs* '((var . expr) ...))
+(define-syntax $TOPLEVELS
+  (syntax-rules (=)
+    [(_ (= (name arg ...) expr) ...)
+     (begin (push! *defs* '((name . (LAMBDA (arg ...) expr)) ...))
             (undefined))]))
 
 (define (main args)
@@ -31,7 +31,7 @@
     (when (null? files) (usage))
     (dolist [file files]
       (load file :paths '(".")))
-    (when emit-eval* (display "(DEFINE (QUOTE ((EVAL* (LAMBDA (X) (EVAL X (QUOTE "))
+    (when emit-eval* (display "($TOPLEVELS (= (EVAL* X) (EVAL X (QUOTE "))
     (pprint (concatenate *defs*))
-    (when emit-eval* (print ")))))))"))
+    (when emit-eval* (print "))))"))
     0))

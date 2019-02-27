@@ -3,7 +3,7 @@
 ;;;
 
 (define-module LISP1.5.axioms
-  (export CAR CDR CONS COND EQ ATOM QUOTE DEFINE))
+  (export CAR CDR CONS COND EQ ATOM QUOTE $TOPLEVELS))
 (select-module LISP1.5.axioms)
 
 (define (CAR x) (if (null? (car x)) 'NIL (car x)))
@@ -22,9 +22,10 @@
          (COND . more)
          expr))]))
 
-;; DEFINE is not exactly an axiom, but more like a directive to set up
-;; the toplevel environment.
-(define-syntax DEFINE
-  (syntax-rules (QUOTE LAMBDA)
-    [(_ (QUOTE ((var (LAMBDA args expr)) ...)))
-     (begin (define var (lambda args expr)) ...)]))
+;; $TOPLEVELS is not an axiom, but more like a directive to set up
+;; the toplevel environment.  We translate 
+(define-syntax $TOPLEVELS
+  (syntax-rules (=)
+    [(_ (= (name arg ...) expr) ...)
+     (begin (define (name arg ...) expr) ...)]))
+

@@ -200,41 +200,14 @@
 ;; To load m-expr that uses LISP1.5 syntax, you want to use other 
 ;; modules such as LISP1.5.axiom.
 
-;; LISP1.5 employs special treatment on toplevel forms.
+;; LISP1.5 employs special treatment on toplevel forms, and it's not
+;; convenient for us to deal with parsed result in the later stage.
+;; (See README.adoc for more discussion).
 ;;
-;;   (DEFINE ((VAR EXPR) ...))
-;;
-;; So we have to collect those toplevel definitions:
-;;
-;;   (= (FN1 ARG ...) EXPR1)
-;;   (= (FN2 ARG ...) EXPR2)
-;;   (= (FN3 ARG ...) EXPR3)
-;;
-;; and convert them into:
-;;
-;;   (DEFINE (QUOTE ((FN1 (LAMBDA (ARG ...) EXPR1)) 
-;;                   (FN2 (LAMBDA (ARG ...) EXPR2)) 
-;;                   (FN3 (LAMBDA (ARG ...) EXPR3)))))
-;;
-;; This transformation is better be done in higher-level construct
-;; than in the parser.
-;;
-;; We also collect FEXPR definitions (our extension)
-;;
-;;   (: (FN1 ARGS ENV) EXPR1)
-;;   ...
-;;
-;; into:
-;;
-;;   (DEFLIST (QUOTE ((FN1 (LAMBDA (ARGS ENV) EXPR1))) ...)
-;;            (QUOTE FEXPR))
-;;
-;;
+;; So, m-expr parser just collect all the toplevel forms
+;; under (TOPLEVELS <expr> ...) form.  Interpretation of $TOPLEVELS form
+;; depends on the later stage.
 
 (define-reader-directive 'm-expr
   (^[sym port ctx]
-    (define (xlate-1 f)
-      (match f
-        [('= (fn arg ...) expr) `(,fn (LAMBDA ,arg ,expr))]
-        [expr (error "Invalid definition: " expr)]))
-    `(DEFINE (QUOTE ,(map xlate-1 (parse-mexprs port))))))
+    `($TOPLEVELS ,@(parse-mexprs port))))
