@@ -152,7 +152,7 @@
 ;;
 ;; as:
 ;;
-;;   (= (FN ARG ...) EXPR)
+;;   ($= (FN ARG ...) EXPR)
 ;;
 
 (define %def ($satisfy (cut eq? '= <>) '=))
@@ -162,10 +162,10 @@
        [args ($optional ($between ($. #\[)
                                   ($sep-by %form ($. #\;))
                                   ($. #\])))]
-       [follow ($optional ($lift cons %def %form))]
+       [follow ($optional ($seq %def %form))]
        ($return (let1 pre (if args (cons head args) head)
                   (if follow
-                    `(,(car follow) ,pre ,(cdr follow))
+                    `($= ,pre ,follow)
                     pre)))))
 
 (define trace-mexpr-parser (make-parameter #f))

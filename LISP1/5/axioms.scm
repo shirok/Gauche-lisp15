@@ -25,7 +25,7 @@
 ;; $TOPLEVELS is not an axiom, but more like a directive to set up
 ;; the toplevel environment.  We translate 
 (define-syntax $TOPLEVELS
-  (syntax-rules (=)
-    [(_ (= (name arg ...) expr) ...)
+  (syntax-rules ($=)
+    [(_ ($= (name arg ...) expr) ...)
      (begin (define (name arg ...) expr) ...)]))
 

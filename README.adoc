@@ -84,25 +84,68 @@ becomes `(LAMBDA (ARG ...) EXPR)`.
 - Local recursive function `label[name;lambda[[arg;...];expr]]`
 becomes `(LABEL NAME (LAMBDA (ARG ...) EXPR))`.
 
-=== A bit of extensions
+=== Parsing single M-expression
+
+Module `LISP1.5.mexpr` implements parsers.  A procedure
+`parse-mexpr` takes a string or an input port, and parses one M-expression
+and returns an S-expression.
+
+----
+gosh> ,u LISP1.5.mexpr
+gosh> (parse-mexpr "cons[(A . B);C]")
+(CONS (QUOTE (A . B)) (QUOTE C))
+gosh> (parse-mexpr "lambda[[x];[eq[NIL;x]→T; T→F]]")
+(LAMBDA (X) (COND ((EQ (QUOTE NIL) X) (QUOTE T)) ((QUOTE T) (QUOTE F))))
+----
+
+See how liteals (upper-case names and lists) are `QUOTE`{nbsp}-d
+once parsed.
+
+[TIP]
+======================================================
+If you try the above example on your REPL, make sure
+your terminal character encoding matches your Gauche setting
+(it's utf-8 by default).
+======================================================
 
 Interestingly, there seemed no direct translation of definition
 syntax `name[arg;...] = expr` into an S-expression.
-he toplevel definitions, as well as toplevel function calls,
-have slightly different rules when punched into cards.
+When a user translates a prorgam in M-expressions into S-expressions
+to punch the cards,
+she gathers all the definitions into a call of `DEFINE` pseudo function
+(see the note below).
+
+For our purpose, we want the parser to yield a single S-expression
+from one M-expression.  So, we return `($= ...)` form
+as the result of parsing a defintion:
+
+----
+gosh> (parse-mexpr "null[x] = [eq[NIL;x]→T; T→F]]")
+($= (NULL X) (COND ((EQ (QUOTE NIL) X) (QUOTE T)) ((QUOTE T) (QUOTE F))))
+----
+
+(The preceding `$` of `$=` indicates it is an internal or 
+implementation-dependent feature.)
+
+The `parse-mexpr` function only parses one M-expression.
+If the input may contain more than one M-expression, use `parse-mexprs`
+instead, which reads input up to EOF and returns an lseq of result
+S-expressions.
+
+=== Writing source in M-expression:
 
 For our purpse, we want to treat M-expressions as our source code,
 and the parser returns a single S-expression as a result.
 So we introduce our own extension.
 
 ----
-(TOPLEVEL <toplevel-form> ...)
+($TOPLEVEL <toplevel-form> ...)
 
 <toplevel-form> : (= <expr> <expr> [<key>])
                 | <expr>
 ----
 
-When read, the entire source is wrapped in `TOPLEVEL` form.
+When read, the entire source is wrapped in `$TOPLEVEL` form.
 Inside it, each toplevel form becomes either
 `(= <expr> <expr>)` (in case of definition) or just an `<expr>`
 in case of toplevel function call.  This `TOPLEVEL` form is
@@ -125,7 +168,7 @@ DEFINE ((
 
 This is actially a special syntax to execute a function call on toplevel.
 It takes a form `FUNC (ARG ...)`, where `ARG`{nbsp}s are implicitly
-quoted.  The function `DEFINE` takes one argument, which is
+kxkxquoted.  The function `DEFINE` takes one argument, which is
 a form of `((NAME LAMBDA-EXPR) ...)`.
 
 If you want to perform some calculation, you list the call of
@@ -143,53 +186,6 @@ DOIT (ARG ...)
 Examples are shown in p.15 and pp.48-51 of LISP1.5 Programmer's
 Manual.
 ================================================================
-
-We also add these extensions, for the convenience.
-
-- There's no comment syntax defined in M-expressions, since
-it's for humans to read, you can freely intermix code
-and natural language descriptions.  For our purpose,
-we make a hash sign `#` to the end of line is a comment.
-(We avoid `;`, for it is used as a separator.)
-
-- In Appendix B of LISP 1.5 Programmer's Manual, they use
-a pseudo extension of conditional expression for concise
-explanation.  Such extension didn't formalized and the actual
-code is written in assembly language instead of M-expressions.
-But for our purpose it'll be convnient to support such extension.
-It is to allow a conditiona expression to have the following clause:
-----
-test \=> fun
-
-where fun can be an expression that yield a function,
-or a LAMBDA form.
-----
-First, `test` is evaluated, and if it yiels a true value
-(a value neither `NIL` nor `F`), the value is applied to
-the function.  It's the same as Scheme's `cond` feature with `\=>`.
-
-
-=== Calling M-expression parser
-
-Module `LISP1.5.mexpr` implements parsers.  A procedure
-`parse-mexpr` takes a string or an input port, and parses one M-expression
-and returns an S-expression.
-
-----
-gosh> ,u LISP1.5.mexpr
-gosh> (parse-mexpr "cons[(A . B);C]")
-(CONS (QUOTE (A . B)) (QUOTE C))
-----
-
-Uppercase names and lists in M-expression are literals,
-hence they are `QUOTE`-{nbsp}d once parsed.
-
-If the input may contain more than one M-expression, use `parse-mexprs`
-instead, which reads input up to EOF and returns an lseq of result
-S-expressions.
-
-
-=== Writing source in M-expression:
 
 You can write M-expression in Scheme source code using `#!m-expr` directive.
 
@@ -210,10 +206,10 @@ The `#!m-expr` directive translates those M-expressions into
 a LISP1.5 `DEFINE` form:
 
 ----
-(DEFINE
- ((FUNCTION1 (LAMBDA (ARG ...) EXPRESSION1))
-  (FUNCTION2 (LAMBDA (ARG ...) EXPRESSION2))
-  ...))
+($TOPLEVEL
+ ($= (FUNCTION1 ARG ...) EXPRESSION1)
+ ($= (FUNCTION2 ARG ...) EXPRESSION2)
+  ...)
 ----
 
 Note that you have to have definitions of `DEFINE` and other primitive
@@ -222,6 +218,38 @@ only handles parsing.
 
 We provide several implementations of those LISP1.5 primitives,
 which we'll show you in the following chapters.
+
+
+=== Other exhancements
+
+We also add these extensions, for the convenience.
+
+==== Comments
+
+There's no comment syntax defined in M-expressions, since
+it's for humans to read, you can freely intermix code
+and natural language descriptions.  For our purpose,
+we make a hash sign `#` to the end of line is a comment.
+(We avoid `;`, for it is used as a separator.)
+
+==== Extended `COND` form
+
+In Appendix B of LISP 1.5 Programmer's Manual, they use
+a pseudo extension of conditional expression for concise
+explanation.  Such extension didn't formalized and the actual
+code is written in assembly language instead of M-expressions.
+But for our purpose it'll be convnient to support such extension.
+It is to allow a conditiona expression to have the following clause:
+----
+test \=> fun
+
+where fun can be an expression that yield a function,
+or a LAMBDA form.
+----
+First, `test` is evaluated, and if it yiels a true value
+(a value neither `NIL` nor `F`), the value is applied to
+the function.  It's the same as Scheme's `cond` feature with `\=>`.
+
 
 
 == A Universal LISP Function

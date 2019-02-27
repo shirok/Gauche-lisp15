@@ -44,11 +44,11 @@
 (test-m "equal[x;y] = [atom[x] -> [atom[y] -> eq[x;y]; T -> F];\
                       equal[car[x]; car[y]] -> equal[cdr[x]; cdr[y]];\
                       T -> F]"
-        '(= (EQUAL X Y)
-            (COND ((ATOM X) (COND ((ATOM Y) (EQ X Y))
-                                  ((QUOTE T) (QUOTE F))))
-                  ((EQUAL (CAR X) (CAR Y)) (EQUAL (CDR X) (CDR Y)))
-                  ((QUOTE T) (QUOTE F)))))
+        '($= (EQUAL X Y)
+             (COND ((ATOM X) (COND ((ATOM Y) (EQ X Y))
+                                   ((QUOTE T) (QUOTE F))))
+                   ((EQUAL (CAR X) (CAR Y)) (EQUAL (CDR X) (CDR Y)))
+                   ((QUOTE T) (QUOTE F)))))
 
 (use LISP1.5)
 (test-module 'LISP1.5)
