@@ -42,7 +42,7 @@ member[C;(A B C D E)] => (C D E)
 LISP programmers back then read and wrote programs in this form,
 _on paper_.  Yes, program sources were meant to be read by humans.
 In order for computers to understand programs, one must have prepared
-a deck of cards, each of which had holes punched according to
+a deck of cards with holes punched according to
 link:https://en.wikipedia.org/wiki/BCD_(character_encoding)[BCD character code].
 The character set didn't have many punctuations and it was impossible
 to punch M-expressions directly.  Instead, people translated
@@ -137,7 +137,59 @@ If the input may contain more than one M-expression, use `parse-mexprs`
 instead, which reads input up to EOF and returns an lseq of result
 S-expressions.
 
+=== Comments and other exhancements
+
+We also add these extensions, for the convenience.
+
+==== Comments
+
+There's no comment syntax defined in M-expressions, since
+it's for humans to read, you can freely intermix code
+and natural language descriptions.  For our purpose,
+we make a hash sign `#` to the end of line is a comment.
+(We avoid `;`, for it is used as a separator.)
+
+==== Extended `COND` form
+
+In Appendix B of LISP 1.5 Programmer's Manual, they use
+a pseudo extension of conditional expression for concise
+explanation.  Such extension didn't formalized and the actual
+code is written in assembly language instead of M-expressions.
+But for our purpose it'll be convnient to support such extension.
+It is to allow a conditiona expression to have the following clause:
+----
+test \=> fun
+
+where fun can be an expression that yield a function,
+or a LAMBDA form.
+----
+First, `test` is evaluated, and if it yiels a true value
+(a value neither `NIL` nor `F`), the value is applied to
+the function.  It's the same as Scheme's `cond` feature with `\=>`.
+
+
+
+
 === Writing source in M-expression:
+
+With Gauche's reader directive feature, you can write source
+in M-expressions, as follows:
+
+----
+;;
+;; Scheme comments
+;; 
+(use LISP1.5.mexpr)
+#!m-expr
+
+# M-expression function definitions
+function1[arg;...] = expression1
+function2[arg;...] = expression2
+...
+----
+
+
+
 
 For our purpse, we want to treat M-expressions as our source code,
 and the parser returns a single S-expression as a result.
@@ -194,19 +246,6 @@ Manual.
 
 You can write M-expression in Scheme source code using `#!m-expr` directive.
 
-----
-;;
-;; Scheme comments
-;; 
-(use LISP1.5.mexpr)
-#!m-expr
-
-# M-expression function definitions
-function1[arg;...] = expression1
-function2[arg;...] = expression2
-...
-----
-
 The `#!m-expr` directive translates those M-expressions into
 a LISP1.5 `DEFINE` form:
 
@@ -223,38 +262,6 @@ only handles parsing.
 
 We provide several implementations of those LISP1.5 primitives,
 which we'll show you in the following chapters.
-
-
-=== Other exhancements
-
-We also add these extensions, for the convenience.
-
-==== Comments
-
-There's no comment syntax defined in M-expressions, since
-it's for humans to read, you can freely intermix code
-and natural language descriptions.  For our purpose,
-we make a hash sign `#` to the end of line is a comment.
-(We avoid `;`, for it is used as a separator.)
-
-==== Extended `COND` form
-
-In Appendix B of LISP 1.5 Programmer's Manual, they use
-a pseudo extension of conditional expression for concise
-explanation.  Such extension didn't formalized and the actual
-code is written in assembly language instead of M-expressions.
-But for our purpose it'll be convnient to support such extension.
-It is to allow a conditiona expression to have the following clause:
-----
-test \=> fun
-
-where fun can be an expression that yield a function,
-or a LAMBDA form.
-----
-First, `test` is evaluated, and if it yiels a true value
-(a value neither `NIL` nor `F`), the value is applied to
-the function.  It's the same as Scheme's `cond` feature with `\=>`.
-
 
 
 == A Universal LISP Function
