@@ -143,8 +143,8 @@ We also add these extensions, for the convenience.
 
 ==== Comments
 
-There's no comment syntax defined in M-expressions, since
-it's for humans to read, you can freely intermix code
+There's no comment syntax defined in M-expressions.  Since
+it's for humans to read, you could freely intermix code
 and natural language descriptions.  For our purpose,
 we make a hash sign `#` to the end of line is a comment.
 (We avoid `;`, for it is used as a separator.)
@@ -153,19 +153,34 @@ we make a hash sign `#` to the end of line is a comment.
 
 In Appendix B of LISP 1.5 Programmer's Manual, they use
 a pseudo extension of conditional expression for concise
-explanation.  Such extension didn't formalized and the actual
+explanation, in which you can access the result of test expression
+from the expression in that branch.
+Such extension didn't formalized and the actual
 code is written in assembly language instead of M-expressions.
 But for our purpose it'll be convnient to support such extension.
-It is to allow a conditiona expression to have the following clause:
-----
-test \=> fun
 
-where fun can be an expression that yield a function,
-or a LAMBDA form.
+It is to allow a conditional expression to have the following clause:
+
 ----
+test => fun
+----
+
+Here, `fun` must be a LAMBDA form that takes one argument,
+or an expression that yield a function.  
 First, `test` is evaluated, and if it yiels a true value
-(a value neither `NIL` nor `F`), the value is applied to
-the function.  It's the same as Scheme's `cond` feature with `\=>`.
+(a value neither `NIL` nor `F`), the value is passed
+to the function.  It's the same as Scheme's `cond` feature with `\=>`.
+
+----
+filter[pred;lis] = [null[lis] → NIL;
+                    pred[car[lis]] ⇒ lambda[[x];cons[x;filter[pred;cdr[lis]]]];
+                    T → filter[pred;cdr[lis]]]
+
+
+filter[atom;(A (B) C (D) E)]
+  yields (A C E)
+----
+
 
 
 
