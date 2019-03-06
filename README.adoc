@@ -818,8 +818,7 @@ returned as values; they will evaluate to closures themselves.
 So far, our `EVAL` requires any bindings to be provided
 via the environment argument.  Preprocessing the source with `mexpr-env.scm`
 was a remedy, but it's still troublesome.  So our next step is to
-add a toplevel environment, that keeps global bindings of `DEFINE`{}d
-symbols.
+add a toplevel environment, that keeps global bindings of symbols.
 
 The easiest way is to keep a global table, and when we search
 a variable binding via `ASSOC` (in the first branch of `EVAL`),
