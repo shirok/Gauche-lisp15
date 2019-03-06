@@ -171,17 +171,8 @@ First, `test` is evaluated, and if it yiels a true value
 (a value neither `NIL` nor `F`), the value is passed
 to the function.  It's the same as Scheme's `cond` feature with `\=>`.
 
-----
-filtermap[pred;lis] =
-   [null[lis] → NIL;
-    pred[car[lis]] ⇒ lambda[[x];cons[x;filtermap[pred;cdr[lis]]]];
-    T → filtermap[pred;cdr[lis]]]
-
-
-filtermap[atom;(A (B) C (D) E)]
-  yields (A C E)
-----
-
+We'll explain the actual use case and implementation of this extension
+when we get to the full toplevel environment support.
 
 === Writing source in M-expression:
 
@@ -201,27 +192,24 @@ function2[arg;...] = expression2
 ...
 ----
 
-
-
-
-For our purpse, we want to treat M-expressions as our source code,
+For our purpose, we want to treat M-expressions as our source code,
 and the parser returns a single S-expression as a result.
 So we introduce our own extension.
 
 ----
 ($TOPLEVEL <toplevel-form> ...)
 
-<toplevel-form> : (= <expr> <expr> [<key>])
+<toplevel-form> : ($= <expr> <expr> [<key>])
                 | <expr>
 ----
 
 When read, the entire source is wrapped in `$TOPLEVEL` form.
 Inside it, each toplevel form becomes either
-`(= <expr> <expr>)` (in case of definition) or just an `<expr>`
-in case of toplevel function call.  This `TOPLEVEL` form is
+`($= <expr> <expr>)` (in case of definition) or just an `<expr>`
+in case of toplevel function call.  This `$TOPLEVEL` form is
 merely our parser's way to wrap the result, and its interpretation
 depends on the caller of the parser; it doesn't mean we'll have
-a special form called `TOPLEVEL`.
+a special form called `$TOPLEVEL`.
 
 [NOTE]
 ================================================================
@@ -238,7 +226,7 @@ DEFINE ((
 
 This is actially a special syntax to execute a function call on toplevel.
 It takes a form `FUNC (ARG ...)`, where `ARG`{nbsp}s are implicitly
-kxkxquoted.  The function `DEFINE` takes one argument, which is
+quoted.  The function `DEFINE` takes one argument, which is
 a form of `((NAME LAMBDA-EXPR) ...)`.
 
 If you want to perform some calculation, you list the call of
@@ -247,17 +235,15 @@ the function after the `DEFINE` form, as follows:
 ----
 DEFINE ((
  ... definitions ..
-(DOIT (LABMDA (ARG ...) EXPR))   
+(DOSOMETHING (LABMDA (ARG ...) EXPR))   
 ))
 
-DOIT (ARG ...)
+DOSOMETHING (ARG ...)
 ----
 
 Examples are shown in p.15 and pp.48-51 of LISP1.5 Programmer's
 Manual.
 ================================================================
-
-You can write M-expression in Scheme source code using `#!m-expr` directive.
 
 The `#!m-expr` directive translates those M-expressions into
 a LISP1.5 `DEFINE` form:
@@ -269,7 +255,7 @@ a LISP1.5 `DEFINE` form:
   ...)
 ----
 
-Note that you have to have definitions of `DEFINE` and other primitive
+Note that you have to have definitions of `$TOPLEVEL` and other primitive
 LISP1.5 forms before loading the source file; The `LISP1.5.mexpr` module
 only handles parsing.
 
@@ -291,7 +277,8 @@ What's interesting about it is that you only need a handful of
 functions and syntaxes to run the interpreter.  We define those
 minimal set of primitives in link:LISP1/5/axioms.scm[].
 It provides the definition of the following primitives:
-`CAR`, `CDR`, `CONS`, `ATOM`, `EQ`, `QUOTE`, `COND`, and `DEFINE`.
+`CAR`, `CDR`, `CONS`, `ATOM`, `EQ`, `QUOTE`, and `COND`, as well as
+a definition of `$TOPLEVEL` to handle toplevel forms.
 
 To try the eval function, first `use` the axioms module, then
 load the `eval.mx` file.  Assuming you have
@@ -412,18 +399,18 @@ the primitives required to interpret functions in `eval.mx`, you can use
 our `EVAL` to evaluate `eval.mx` to run `EVAL` on top of 
 `EVAL` -- now you're running a metacircular interpreter!
 
-You might have noticed though, that `axioms.scm` provides `DEFINE`,
+You might have noticed though, that `axioms.scm` provides `$TOPLEVELS`,
 which is missing in `eval.mx`.  In our context of discussing
-metacircular interpreter, `DEFINE` appears as a result of
+metacircular interpreter, `$TOPLEVELS` appears as a result of
 parsing M-expression definitions, and should be understood
 as a meta-language to direct the set-up, rather than an integrated
 part of the language (one way to think of it is that if other primitives
-are C built-ins then `DEFINE` is `#pragma` or `Makefile` -- they belong
-to a slightly different layer.)
+are C built-ins then `$TOPLEVELS` is `#pragma` or `Makefile` -- they belong
+to a different layer.)
 
-Of course, it is more convenient to include `DEFINE` in the core language,
-and we'll deal with it later.  For now, let's stick to the primitives
-excluding `DEFINE`.
+Of course, it is more convenient to have an ability in the core language
+to add new toplevel definitions, 
+and we'll deal with it later.  For now, let's stick to the 7 primitives.
 
 In order to run `EVAL` inside `EVAL`, we need to prepare the definitions
 in `eval.mx` as an environment alist passed to outer `EVAL`.
@@ -473,8 +460,8 @@ Gauche can understand it after using `LISP1.5.axioms`).
 The created `lisp/eval.lisp` looks as follows:
 
 ----
-(DEFINE ((EVAL* (LAMBDA (X) (EVAL X '...<<environment defined in eval.mx>>...
-)))))
+($TOPLEVELS ($= (EVAL* X) (EVAL X '...<<environment defined in eval.mx>>...
+)))
 ----
 
 That is, it defines `EVAL*` which takes one LISP1.5 expression and
