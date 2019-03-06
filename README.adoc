@@ -51,7 +51,7 @@ to describe nested list structures.  In other words, people
 fed the machine the internal representation of syntax tree
 directly.
 
-Eventually, people got used to write programs in S-expresions
+Eventually, people got used to write programs in S-expresions directly,
 and M-expressions were faded into oblivion.
 
 However, when we read papers of that era, we see M-expressions
@@ -89,7 +89,7 @@ becomes `(LAMBDA (ARG ...) EXPR)`.
 - Local recursive function `label[name;lambda[[arg;...];expr]]`
 becomes `(LABEL NAME (LAMBDA (ARG ...) EXPR))`.
 
-=== Parsing single M-expression
+=== Parsing a single M-expression
 
 Module `LISP1.5.mexpr` implements parsers.  A procedure
 `parse-mexpr` takes a string or an input port, and parses one M-expression
