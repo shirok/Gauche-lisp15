@@ -1,0 +1,13 @@
+;; -*- coding:utf-8 -*-
+;; An example of using extended cond
+
+(use LISP1.5.mexpr)
+
+#!m-expr
+
+filtermap[pred;lis] =
+   [null[lis] → NIL;
+    pred[car[lis]] ⇒ lambda[[x];cons[x;filtermap[pred;cdr[lis]]]];
+    T → filtermap[pred;cdr[lis]]]
+
+# filtermap[atom;(A (B) C (D) E)] => (A C E)

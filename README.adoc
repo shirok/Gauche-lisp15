@@ -172,17 +172,15 @@ First, `test` is evaluated, and if it yiels a true value
 to the function.  It's the same as Scheme's `cond` feature with `\=>`.
 
 ----
-filter[pred;lis] = [null[lis] → NIL;
-                    pred[car[lis]] ⇒ lambda[[x];cons[x;filter[pred;cdr[lis]]]];
-                    T → filter[pred;cdr[lis]]]
+filtermap[pred;lis] =
+   [null[lis] → NIL;
+    pred[car[lis]] ⇒ lambda[[x];cons[x;filtermap[pred;cdr[lis]]]];
+    T → filtermap[pred;cdr[lis]]]
 
 
-filter[atom;(A (B) C (D) E)]
+filtermap[atom;(A (B) C (D) E)]
   yields (A C E)
 ----
-
-
-
 
 
 === Writing source in M-expression:

@@ -14,13 +14,18 @@
 
 (define-syntax QUOTE quote)
 (define-syntax COND
-  (syntax-rules ()
+  (syntax-rules (=>)
     [(_) 'NIL]
     [(_ (test expr) . more)
      (let ([t test])
        (if (or (eq? t 'NIL) (eq? t 'F))
          (COND . more)
-         expr))]))
+         expr))]
+    [(_ (test => expr) . more)          ; extension
+     (let ([t test])
+       (if (or (eq? t 'NIL) (eq? t 'F))
+         (COND . more)
+         (expr t)))]))
 
 ;; $TOPLEVELS is not an axiom, but more like a directive to set up
 ;; the toplevel environment.  We translate 

@@ -114,9 +114,11 @@
 
 (define %conditional-clause
   ($do [test %form]
-       [($satisfy (cut eq? <> '->) '->)]
+       [arrow ($satisfy (cut memq <> '(-> =>)) '(-> =>))]
        [expr %form]
-       ($return (list test expr))))
+       ($return (if (eq? arrow '->)
+                  (list test expr)
+                  (list test '=> expr)))))
 
 (define %conditional
   ($do [clauses ($between ($. #\[)
