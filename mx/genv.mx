@@ -1,3 +1,4 @@
+;; -*- coding:utf-8 -*-
 ;;;
 ;;; EVAL with global envirnoment and LISP1.5 symbols
 ;;;
@@ -17,77 +18,44 @@
 # Search a key Y in plist X and returns the corresponding value
 # If not found, returns NIL.
 get[x;y] =
-  [null[x] -> NIL;
-   eq[car[x];y] -> cadr[x];
-   T -> get[cdr[x]; y]]
+  [null[x] → NIL;
+   eq[car[x];y] → cadr[x];
+   T → get[cdr[x]; y]]
 
 # Search a key Y in plist X.  If found, returns cdr of the pair
 # that has the key.  If not found, call thunk U.
 prop[x;y;u] =
-  [null[x] -> u[];
-   eq[car[x];y] -> cdr[x];
-   T -> prop[cdr[x];y;u]]
+  [null[x] → u[];
+   eq[car[x];y] → cdr[x];
+   T → prop[cdr[x];y;u]]
 
 # Not a LISP1.5 API.  Search the property value for key Y of symbol SYM.
 $getprop[sym;y] = get[$getplisp[sym];y];
 
-# The branch in apply and eval could've been written more concisely
-# if we had Scheme cond syntax, e.g.:
-# 
-#   (cond
-#     ...
-#     [(atom fn) (cond
-#                  [($getprop fn 'EXPR) => (^[expr] (apply expr args a))]
-#                  [($getprop fn 'SUBR) => (^[subr] ($callsubr subr args))]
-#                  [else ...])]
-#     ...
-#     )
-#
-# LISP1.5 doesn't have it, so we use auxiliary functions to write chain
-# of test-and-bind constructs.
-#
 apply[fn;args;a] =
-  [null[fn] -> NIL;
-   atom[fn] -> apply1[$getprop[fn;EXPR];fn;args;a];
-   eq[car[fn];LABEL] -> apply[caddr[fn];args;cons[cons[cadr[fn];caddr[fn]];a]];
-   eq[car[fn];FUNARG] -> apply[cadr[fn];args;caddr[fn]];
-   eq[car[fn];LAMBDA] -> eval[caddr[fn];pairlis[cadr[fn];args;a]];
-   T -> apply[eval[fn;a];args;a]]
-
-apply1[expr;fn;args;a] =
-  [expr -> apply[expr;args;a];
-   T -> apply2[$getprop[fn;SUBR];fn;args;a]]
-
-apply2[subr;fn;args;a] =
-  [subr -> $callsubr[subr;args];
-   T -> apply[cdr[sassoc[fn;a;lambda[[];error[A2]]]];args;a]]
+  [null[fn] → NIL;
+   atom[fn] → [$getprop[fn;EXPR] ⇒ λ[[e];apply[e;args;a]];
+                $getprop[fn;SUBR] ⇒ λ[[s];$callsubr[s;args]];
+                T → apply[cdr[sassoc[fn;a;λ[[];error[A2]]]];args;a]];
+   eq[car[fn];LABEL] → apply[caddr[fn];args;cons[cons[cadr[fn];caddr[fn]];a]];
+   eq[car[fn];FUNARG] → apply[cadr[fn];args;caddr[fn]];
+   eq[car[fn];LAMBDA] → eval[caddr[fn];pairlis[cadr[fn];args;a]];
+   T → apply[eval[fn;a];args;a]]
 
 eval[form;a] =
-  [null[form] -> NIL;
-   #numberp[form] -> form;
-   atom[form] -> evalvar[$getprop[form;APVAL];form;a];
-   atom[car[form]] -> eval1[$getprop[car[form];EXPR];form;a];
-   T -> apply[car[form];evlis[cdr[form];a];a]]
-
-evalvar[val;var;a] =
-  [val -> car[val];
-   T -> cdr[sassoc[var;a;lambda[[];error[A8]]]]]
-
-eval1[expr;form;a] =
-  [expr -> apply[expr;evlis[cdr[form];a];a];
-   T -> eval2[$getprop[car[form];FEXPR];form;a]]
-
-eval2[fexpr;form;a] =
-  [fexpr -> apply[fexpr;cons[cdr[form];cons[a;NIL]];a];
-   T -> eval3[$getprop[car[form];SUBR];form;a]]
-
-eval3[subr;form;a] =
-  [subr -> $callsubr[subr;evlis[cdr[form];a]];
-   T -> eval4[$getprop[car[form];FSUBR];form;a]]
-
-eval4[fsubr;form;a] =
-  [fsubr -> $callsubr[fsubr;cons[cdr[form];cons[a;NIL]]];
-   T -> eval[cons[cdr[sassoc[car[form];a;lambda[[];error[A9]]]];
-                  cdr[form]];a]]
-
-
+  [null[form] → NIL;
+   #numberp[form] → form;
+   atom[form] → [$getprop[form;APVAL] ⇒ λ[[v];car[v]];
+                  T → cdr[sassoc[var;a;λ[[];error[A8]]]]];
+   atom[car[form]] → [$getprop[car[form];EXPR]
+                         ⇒ λ[[e];apply[e;evlis[cdr[form];a];a];];
+                       $getprop[car[form];FEXPR]
+                         ⇒ λ[[f];apply[f;cons[cdr[form];cons[a;NIL]];a]];
+                       $getprop[car[form];SUBR]
+                         ⇒ λ[[s];$callsubr[subr;evlis[cdr[form];a]]];
+                       $getprop[car[form];FSUBR]
+                         ⇒ λ[[f];$callsubr[fsubr;cons[cdr[form];cons[a;NIL]]]];
+                       T → eval[cons[cdr[sassoc[car[form];a;λ[[];error[A9]]]];
+                                     cdr[form]];
+                                a]];
+   T → apply[car[form];evlis[cdr[form];a];a]]
