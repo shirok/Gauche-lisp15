@@ -6,8 +6,8 @@
 ;; Appendix B.
 
 (define-module LISP1.5.runtime
-  (export CAR CDR CONS ATOM EQ ERROR DEFINE DEFLIST COND QUOTE
-          $GETPLIST $PUTPLIST $CALLSUBR
+  (export CAR CDR CONS ATOM EQ ERROR COND QUOTE
+          $GETPLIST $PUTPLIST $CALLSUBR $TOPLEVELS
           $scheme->lisp $lisp->scheme)
   )
 (select-module LISP1.5.runtime)
@@ -98,29 +98,14 @@
 (define ($CALLSUBR subr args)
   (apply subr args))
 
-(define (DEFLIST bindings key)
-  (unless ($atom? key)
-    ($error "Atom required, but got:" key))
-  (dolist [binding bindings]
-    (let ([var (car binding)]
-          [val (cadr binding)])
-      (unless ($atom? var)
-        ($error "Atom required, but got:" var))
-      (set! (cdr var) (list* key val (cdr var))))))
-
-;; DEFINE does different things in the Basement and Ground Floor.
-;; In the Basement, it translates LISP1.5 expressions into
-;; Scheme definitions, as well as inserts LISP global bindings.
-;; In the Ground Floor, it only deals with LISP bindings.
-
-(define-syntax DEFINE
-  (syntax-rules ()
-    [(_ ((var (LAMBDA args expr)) ...))
-     (begin (define var
-              (let ([lsym ($scheme->lisp 'var)]
-                    [lfn `(,($scheme->lisp 'LAMBDA) args expr)])
+(define-syntax $TOPLEVELS
+  (syntax-rules ($=)
+    [(_ ($= (name args ...) expr) ...)
+     (begin (define name
+              (let ([lsym ($scheme->lisp 'name)]
+                    [lfn ($scheme->lisp '(LAMBDA (args ...) expr))])
                 (set! (cdr lsym) `(,($scheme->lisp 'EXPR) ,lfn ,@(cdr lsym)))
-                (lambda args expr)))
+                (lambda (args ...) expr)))
             ...)]))
 
 (define-syntax QUOTE quote)
