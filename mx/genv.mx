@@ -11,6 +11,12 @@
 
 #!m-expr
 
+# assoc with error check
+sassoc[x;a;thunk] =
+  [null[a] → thunk[];
+   equal[caar[a];x] → car[a];
+   T → sassoc[x;cdr[a];thunk]]
+
 #
 # Attribute-related routines
 #
@@ -22,20 +28,11 @@ get[x;y] =
    eq[car[x];y] → cadr[x];
    T → get[cdr[x]; y]]
 
-# Search a key Y in plist X.  If found, returns cdr of the pair
-# that has the key.  If not found, call thunk U.
-prop[x;y;u] =
-  [null[x] → u[];
-   eq[car[x];y] → cdr[x];
-   T → prop[cdr[x];y;u]]
-
-# Not a LISP1.5 API.  Search the property value for key Y of symbol SYM.
-$getprop[sym;y] = get[$getplisp[sym];y];
 
 apply[fn;args;a] =
   [null[fn] → NIL;
-   atom[fn] → [$getprop[fn;EXPR] ⇒ λ[[e];apply[e;args;a]];
-                $getprop[fn;SUBR] ⇒ λ[[s];$callsubr[s;args]];
+   atom[fn] → [get[fn;EXPR] ⇒ λ[[e];apply[e;args;a]];
+                get[fn;SUBR] ⇒ λ[[s];$callsubr[s;args]];
                 T → apply[cdr[sassoc[fn;a;λ[[];error[A2]]]];args;a]];
    eq[car[fn];LABEL] → apply[caddr[fn];args;cons[cons[cadr[fn];caddr[fn]];a]];
    eq[car[fn];FUNARG] → apply[cadr[fn];args;caddr[fn]];
@@ -45,15 +42,15 @@ apply[fn;args;a] =
 eval[form;a] =
   [null[form] → NIL;
    #numberp[form] → form;
-   atom[form] → [$getprop[form;APVAL] ⇒ λ[[v];car[v]];
+   atom[form] → [get[form;APVAL] ⇒ λ[[v];car[v]];
                   T → cdr[sassoc[var;a;λ[[];error[A8]]]]];
-   atom[car[form]] → [$getprop[car[form];EXPR]
+   atom[car[form]] → [get[car[form];EXPR]
                          ⇒ λ[[e];apply[e;evlis[cdr[form];a];a];];
-                       $getprop[car[form];FEXPR]
+                       get[car[form];FEXPR]
                          ⇒ λ[[f];apply[f;cons[cdr[form];cons[a;NIL]];a]];
-                       $getprop[car[form];SUBR]
+                       get[car[form];SUBR]
                          ⇒ λ[[s];$callsubr[subr;evlis[cdr[form];a]]];
-                       $getprop[car[form];FSUBR]
+                       get[car[form];FSUBR]
                          ⇒ λ[[f];$callsubr[fsubr;cons[cdr[form];cons[a;NIL]]]];
                        T → eval[cons[cdr[sassoc[car[form];a;λ[[];error[A9]]]];
                                      cdr[form]];
