@@ -6,8 +6,7 @@
 ;; Appendix B.
 
 (define-module LISP1.5.runtime
-  (export CAR CDR CONS ATOM EQ ERROR COND QUOTE
-          $GETPLIST $PUTPLIST $CALLSUBR $TOPLEVELS
+  (export $TOPLEVELS
           $scheme->lisp $lisp->scheme)
   )
 (select-module LISP1.5.runtime)
@@ -60,43 +59,13 @@
                            ($scheme->lisp (cdr obj)))]
         [else (errorf "Cannot convert ~s to LISP" obj)]))
 
-(define ($error msg . objs)
-  (apply error msg (map $lisp->scheme objs)))
-
 ;;;
-;;; Primitives exposed to eval-globalenv.mx
+;;; The "basement"---primitives that are used to run eval in the ground floor
 ;;;
 
-(define (CAR x)
-  (cond ;[(eq? x *NIL*) *NIL*]
-        [($cons? x) (car x)]
-        [else ($error "Cannot take CAR of an atom:" x)]))
-(define (CDR x)
-  (cond ;[(eq? x *NIL*) *NIL*]
-        [($cons? x) (cdr x)]
-        [else ($error "Cannot take CDR of an atom:" x)]))
-(define (CONS x y) (cons x y))
-(define (ATOM x) (if ($atom? x) *T* *F*))
-(define (EQ x y) (if (eq? x y) *T* *F*))
+(define ($callsubr subr args) (apply subr args))
 
-(define (ERROR msg obj)
-  (errorf "LISP Error: ~a:" ($lisp->scheme msg) ($lisp->scheme obj)))
-
-;; These two are not LISP1.5 public functions, but the minimal native
-;; functions, on top of which we can build other primitives in LISP.
-(define ($GETPLIST x)
-  (if ($atom? x)
-    (cdr x)
-    ($error "Atom required, but got:" x)))
-(define ($PUTPLIST x)
-  (if ($atom? x)
-    (begin (set-cdr! x p) *NIL*)
-    ($error "Atom required, but got:" x)))
-
-;; Another 'vent' between the Grand Floor and the Basement.
-;; SUBR is Gauche procedure.
-(define ($CALLSUBR subr args)
-  (apply subr args))
+(define ($error obj) (error "Meta*LISP Error:" obj))
 
 (define-syntax $TOPLEVELS
   (syntax-rules ($=)
@@ -119,7 +88,7 @@
          expr))]))
 
 ;;;
-;;; Make primitives visible from the First Floor
+;;; The "ground floor"---these are used 
 ;;;
 
 (define-syntax defattr
@@ -128,10 +97,14 @@
      (let1 lsym ($scheme->lisp 'var)
        (set! (cdr lsym) `(,($scheme->lisp key) ,val ,@(cdr lsym))))]))
 
-(defattr CAR 'SUBR CAR)
-(defattr CDR 'SUBR CDR)
-(defattr CONS 'SUBR CONS)
-(defattr ATOM 'SUBR ATOM)
-(defattr EQ 'SUBR EQ)
+(defattr CAR 'SUBR car)
+(defattr CDR 'SUBR cdr)
+(defattr CONS 'SUBR cons)
+(defattr ATOM 'SUBR (lambda (x) (if ($atom? x) *T* *F*)))
+(defattr EQ 'SUBR (lambda (x y) (if (eq? x y) *T* *F*)))
+(defattr QUOTE 'FSUBR (lambda (args env) (caar args)))
+(defattr COND 'FSUBR $cond)
+  
+
 (defattr ERROR 'SUBR ERROR)
 
