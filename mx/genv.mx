@@ -32,7 +32,7 @@ get[x;y] =
 apply[fn;args;a] =
   [null[fn] → NIL;
    atom[fn] → [get[fn;EXPR] ⇒ λ[[e];apply[e;args;a]];
-                get[fn;SUBR] ⇒ λ[[s];$callsubr[s;args]];
+                get[fn;SUBR] ⇒ λ[[s];callsubr[s;args]];
                 T → apply[cdr[sassoc[fn;a;λ[[];error[A2]]]];args;a]];
    eq[car[fn];LABEL] → apply[caddr[fn];args;cons[cons[cadr[fn];caddr[fn]];a]];
    eq[car[fn];FUNARG] → apply[cadr[fn];args;caddr[fn]];
@@ -45,13 +45,13 @@ eval[form;a] =
    atom[form] → [get[form;APVAL] ⇒ λ[[v];car[v]];
                   T → cdr[sassoc[var;a;λ[[];error[A8]]]]];
    atom[car[form]] → [get[car[form];EXPR]
-                         ⇒ λ[[e];apply[e;evlis[cdr[form];a];a];];
+                         ⇒ λ[[e];apply[e;evlis[cdr[form];a];a]];
                        get[car[form];FEXPR]
                          ⇒ λ[[f];apply[f;cons[cdr[form];cons[a;NIL]];a]];
                        get[car[form];SUBR]
-                         ⇒ λ[[s];$callsubr[subr;evlis[cdr[form];a]]];
+                         ⇒ λ[[s];callsubr[subr;evlis[cdr[form];a]]];
                        get[car[form];FSUBR]
-                         ⇒ λ[[f];$callsubr[fsubr;cons[cdr[form];cons[a;NIL]]]];
+                         ⇒ λ[[f];callsubr[fsubr;cons[cdr[form];cons[a;NIL]]]];
                        T → eval[cons[cdr[sassoc[car[form];a;λ[[];error[A9]]]];
                                      cdr[form]];
                                 a]];

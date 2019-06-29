@@ -7,7 +7,8 @@
 
 (define-module LISP1.5.runtime
   (export $TOPLEVELS
-          CAR CDR CONS ATOM EQ QUOTE COND
+          CAR CDR CONS ATOM EQ QUOTE COND CALLSUBR
+          T F NIL
           $scheme->lisp $lisp->scheme)
   )
 (select-module LISP1.5.runtime)
@@ -68,16 +69,15 @@
 
 ;; We don't check whether the argument is an atom--thus we allow them
 ;; to go through symbol's property list.
-(define CAR car)
-(define CDR cdr)
-
-(define CONS cons)
+(define (CAR x) (if (null? (car x)) *NIL* (car x)))
+(define (CDR x) (if (null? (cdr x)) *NIL* (cdr x)))
+(define (CONS x y) (cons x (if (eq? y *NIL*) '() y)))
 (define (ATOM x) (if ($atom? x) *T* *F*))
 (define (EQ x y) (if (eq? x y) *T* *F*))
 
 (define-syntax QUOTE
   (syntax-rules ()
-    [(_ x) 'x]))
+    [(_ x) ($scheme->lisp 'x)]))
 (define-syntax COND
   (syntax-rules (=>)
     [(_) *NIL*]
@@ -92,7 +92,11 @@
          (COND . more)
          (expr t)))]))
 
-(define ($callsubr subr args) (apply subr args))
+(define (CALLSUBR subr args) (apply subr args))
+(define T *T*)
+(define F *T*)
+(define NIL *NIL*)
+
 
 (define ($error obj) (error "Meta*LISP Error:" obj))
 
@@ -138,3 +142,4 @@
 (defattr QUOTE 'FSUBR (lambda (args env) (caar args)))
 (defattr COND 'FSUBR $cond)
 (defattr ERROR 'SUBR $error)
+(defattr CALLSUBR 'SUBR CALLSUBR)
