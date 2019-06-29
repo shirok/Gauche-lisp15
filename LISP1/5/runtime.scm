@@ -7,6 +7,7 @@
 
 (define-module LISP1.5.runtime
   (export $TOPLEVELS
+          CAR CDR CONS ATOM EQ QUOTE COND
           $scheme->lisp $lisp->scheme)
   )
 (select-module LISP1.5.runtime)
@@ -19,6 +20,7 @@
 
 (define *PNAME* '#0=(ATOM #0# "PNAME"))
 (define *APVAL* `(ATOM ,*PNAME* "APVAL"))
+(define *SUBR*  `(ATOM ,*PNAME* "SUBR"))
 (define *NIL* (rlet1 nil (list 'ATOM *PNAME* "NIL" *APVAL*)
                 (set! (cddddr nil) (list nil))))
 
@@ -47,6 +49,7 @@
                                  'NIL *NIL*
                                  'PNAME *PNAME*
                                  'APVAL *APVAL*
+                                 'SUBR  *SUBR*
                                  'F *F*
                                  'T *T*))
 
@@ -63,6 +66,32 @@
 ;;; The "basement"---primitives that are used to run eval in the ground floor
 ;;;
 
+;; We don't check whether the argument is an atom--thus we allow them
+;; to go through symbol's property list.
+(define CAR car)
+(define CDR cdr)
+
+(define CONS cons)
+(define (ATOM x) (if ($atom? x) *T* *F*))
+(define (EQ x y) (if (eq? x y) *T* *F*))
+
+(define-syntax QUOTE
+  (syntax-rules ()
+    [(_ x) 'x]))
+(define-syntax COND
+  (syntax-rules (=>)
+    [(_) *NIL*]
+    [(_ (test expr) . more)
+     (let ([t test])
+       (if (or (eq? t *NIL*) (eq? t *F*))
+         (COND . more)
+         expr))]
+    [(_ (test => expr) . more)          ; extension
+     (let ([t test])
+       (if (or (eq? t *NIL*) (eq? t *F*))
+         (COND . more)
+         (expr t)))]))
+
 (define ($callsubr subr args) (apply subr args))
 
 (define ($error obj) (error "Meta*LISP Error:" obj))
@@ -77,15 +106,19 @@
                 (lambda (args ...) expr)))
             ...)]))
 
-(define-syntax QUOTE quote)
-(define-syntax COND
-  (syntax-rules ()
-    [(_) *NIL*]
-    [(_ (test expr) . more)
-     (let ([t test])
-       (if (or (eq? t *NIL*) (eq? t *F*))
-         (COND . more)
-         expr))]))
+(define $lisp-eval
+  (let1 promis (delay (get-keyword *SUBR* ($scheme->lisp 'EVAL)))
+    (lambda () (force promis))))
+
+(define ($cond args env)
+  (if (null? args)
+    *NIL*
+    (let ([test (caar args)]
+          [expr (cadar args)])
+      (let1 val (($lisp-eval) test env)
+        (if (or (eq? val *F*) (eq? val *NIL*))
+          ($cond (cdr args) env)
+          (($lisp-eval) expr env))))))
 
 ;;;
 ;;; The "ground floor"---these are used 
@@ -97,14 +130,11 @@
      (let1 lsym ($scheme->lisp 'var)
        (set! (cdr lsym) `(,($scheme->lisp key) ,val ,@(cdr lsym))))]))
 
-(defattr CAR 'SUBR car)
-(defattr CDR 'SUBR cdr)
-(defattr CONS 'SUBR cons)
-(defattr ATOM 'SUBR (lambda (x) (if ($atom? x) *T* *F*)))
-(defattr EQ 'SUBR (lambda (x y) (if (eq? x y) *T* *F*)))
+(defattr CAR 'SUBR CAR)
+(defattr CDR 'SUBR CDR)
+(defattr CONS 'SUBR CONS)
+(defattr ATOM 'SUBR ATOM)
+(defattr EQ 'SUBR EQ)
 (defattr QUOTE 'FSUBR (lambda (args env) (caar args)))
 (defattr COND 'FSUBR $cond)
-  
-
-(defattr ERROR 'SUBR ERROR)
-
+(defattr ERROR 'SUBR $error)
