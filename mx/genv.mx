@@ -28,7 +28,6 @@ get[x;y] =
    eq[car[x];y] → cadr[x];
    T → get[cdr[x]; y]]
 
-
 apply[fn;args;a] =
   [null[fn] → NIL;
    atom[fn] → [get[fn;EXPR] ⇒ λ[[e];apply[e;args;a]];
@@ -49,9 +48,9 @@ eval[form;a] =
                        get[car[form];FEXPR]
                          ⇒ λ[[f];apply[f;cons[cdr[form];cons[a;NIL]];a]];
                        get[car[form];SUBR]
-                         ⇒ λ[[s];callsubr[subr;evlis[cdr[form];a]]];
+                         ⇒ λ[[s];callsubr[s;evlis[cdr[form];a]]];
                        get[car[form];FSUBR]
-                         ⇒ λ[[f];callsubr[fsubr;cons[cdr[form];cons[a;NIL]]]];
+                         ⇒ λ[[f];callsubr[f;cons[cdr[form];cons[a;NIL]]]];
                        T → eval[cons[cdr[sassoc[car[form];a;λ[[];error[A9]]]];
                                      cdr[form]];
                                 a]];
