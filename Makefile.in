@@ -49,7 +49,8 @@ lisp/mapcar.lisp : mx/eval.mx mx/mapcar.mx
 
 check : all
 	@rm -f test.log
-	$(GOSH) -I. -I$(srcdir) $(srcdir)/test.scm > test.log
+	$(GOSH) -I. -I$(srcdir) $(srcdir)/test-basic.scm > test.log
+	$(GOSH) -I. -I$(srcdir) $(srcdir)/test-genv.scm >> test.log
 
 install : all
 	$(INSTALL) -m 444 -T $(GAUCHE_PKGINCDIR) $(HEADERS)
