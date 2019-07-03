@@ -8,7 +8,7 @@
 (define-module LISP1.5.runtime
   (export $TOPLEVELS
           CAR CDR CONS ATOM EQ QUOTE COND CALLSUBR
-          LAMBDA T F NIL ERROR
+          T F NIL ERROR
           $scheme->lisp $lisp->scheme)
   )
 (select-module LISP1.5.runtime)
@@ -79,19 +79,19 @@
   (syntax-rules ()
     [(_ x) ($scheme->lisp 'x)]))
 (define-syntax COND
-  (syntax-rules (=>)
+  (syntax-rules (=> LAMBDA)
     [(_) *NIL*]
     [(_ (test expr) . more)
      (let ([t test])
        (if (or (eq? t *NIL*) (eq? t *F*))
          (COND . more)
          expr))]
-    [(_ (test => expr) . more)          ; extension
+    [(_ (test => (LAMBDA (var) expr)) . more)          ; extension
      (let ([t test])
        (if (or (eq? t *NIL*) (eq? t *F*))
          (COND . more)
-         (expr t)))]))
-(define-syntax LAMBDA lambda)
+         (let ([var t])
+           expr)))]))
 
 (define (CALLSUBR subr args) (apply subr args))
 (define T *T*)
