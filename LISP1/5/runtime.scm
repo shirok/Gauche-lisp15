@@ -8,7 +8,7 @@
 (define-module LISP1.5.runtime
   (export $TOPLEVELS
           CAR CDR CONS ATOM EQ QUOTE COND CALLSUBR
-          T F NIL
+          LAMBDA T F NIL ERROR
           $scheme->lisp $lisp->scheme)
   )
 (select-module LISP1.5.runtime)
@@ -91,6 +91,7 @@
        (if (or (eq? t *NIL*) (eq? t *F*))
          (COND . more)
          (expr t)))]))
+(define-syntax LAMBDA lambda)
 
 (define (CALLSUBR subr args) (apply subr args))
 (define T *T*)
@@ -98,7 +99,7 @@
 (define NIL *NIL*)
 
 
-(define ($error obj) (error "Meta*LISP Error:" obj))
+(define (ERROR obj) (error "Meta*LISP Error:" ($lisp->scheme obj)))
 
 (define-syntax $TOPLEVELS
   (syntax-rules ($=)
@@ -139,7 +140,7 @@
 (defattr CONS 'SUBR CONS)
 (defattr ATOM 'SUBR ATOM)
 (defattr EQ 'SUBR EQ)
-(defattr QUOTE 'FSUBR (lambda (args env) (caar args)))
+(defattr QUOTE 'FSUBR (lambda (args env) (car args)))
 (defattr COND 'FSUBR $cond)
-(defattr ERROR 'SUBR $error)
+(defattr ERROR 'SUBR ERROR)
 (defattr CALLSUBR 'SUBR CALLSUBR)
