@@ -14,11 +14,11 @@
   (do-ec [: arg (index i) args]
          (begin 
            (format (current-output-port) "~a~2d: " (indent) i)
-           (pprint arg :length 6 :level 4)))
+           (pprint ($lisp->scheme arg) :length 6 :level 4)))
   (rlet1 r (parameterize ((nesting (+ (nesting) 1)))
              (apply (~ t'orig-proc) args))
     (display #"~(indent)Result of ~(~ t'name): ")
-    (pprint r :length 6 :level 4)))
+    (pprint ($lisp->scheme r) :length 6 :level 4)))
 
 (define-syntax trace
   (syntax-rules ()
