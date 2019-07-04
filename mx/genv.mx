@@ -17,16 +17,16 @@ sassoc[x;a;thunk] =
    equal[caar[a];x] → car[a];
    T → sassoc[x;cdr[a];thunk]]
 
-#
-# Attribute-related routines
-#
-
 # Search a key Y in plist X and returns the corresponding value
 # If not found, returns NIL.
 get[x;y] =
   [null[x] → NIL;
    eq[car[x];y] → cadr[x];
    T → get[cdr[x]; y]]
+
+#
+# Apply and Eval
+#
 
 apply[fn;args;a] =
   [null[fn] → NIL;
@@ -40,7 +40,6 @@ apply[fn;args;a] =
 
 eval[form;a] =
   [null[form] → NIL;
-   #numberp[form] → form;
    atom[form] → [get[form;APVAL] ⇒ λ[[v];car[v]];
                   T → cdr[sassoc[var;a;λ[[];error[A8]]]]];
    atom[car[form]] → [get[car[form];EXPR]

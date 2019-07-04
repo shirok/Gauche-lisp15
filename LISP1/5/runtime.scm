@@ -6,6 +6,7 @@
 ;; Appendix B.
 
 (define-module LISP1.5.runtime
+  (use util.match)
   (export $TOPLEVELS
           CAR CDR CONS ATOM EQ QUOTE COND CALLSUBR
           T F NIL ERROR
@@ -111,36 +112,43 @@
                 (lambda (args ...) expr)))
             ...)]))
 
+;;;
+;;; The "ground floor"---these are used to evaluate the second-level code
+;;;
+
 (define $lisp-eval
   (let1 promis (delay (get-keyword *SUBR* ($scheme->lisp 'EVAL)))
     (lambda () (force promis))))
+(define $lisp-apply
+  (let1 promis (delay (get-keyword *SUBR* ($scheme->lisp 'APPLY)))
+    (lambda () (force promis))))
 
 (define ($cond args env)
-  (if (null? args)
-    *NIL*
-    (let ([test (caar args)]
-          [expr (cadar args)])
-      (let1 val (($lisp-eval) test env)
-        (if (or (eq? val *F*) (eq? val *NIL*))
-          ($cond (cdr args) env)
-          (($lisp-eval) expr env))))))
+  (match args
+    [() *NIL*]
+    [((test expr) . rest)
+     (let1 val (($lisp-eval) test env)
+       (if (or (eq? val *F*) (eq? val *NIL*))
+         ($cond rest env)
+         (($lisp-eval) expr env)))]
+    [((test '=> proc) . rest)
+     (let1 val (($lisp-eval) test env)
+       (if (or (eq? val *F*) (eq? val *NIL*))
+         ($cond rest env)
+         (($lisp-apply) proc (list val) env)))]))
 
-;;;
-;;; The "ground floor"---these are used 
-;;;
-
-(define-syntax defattr
+(define-syntax defglobal
   (syntax-rules ()
     [(_ var key val)
      (let1 lsym ($scheme->lisp 'var)
        (set! (cdr lsym) `(,($scheme->lisp key) ,val ,@(cdr lsym))))]))
 
-(defattr CAR 'SUBR CAR)
-(defattr CDR 'SUBR CDR)
-(defattr CONS 'SUBR CONS)
-(defattr ATOM 'SUBR ATOM)
-(defattr EQ 'SUBR EQ)
-(defattr QUOTE 'FSUBR (lambda (args env) (car args)))
-(defattr COND 'FSUBR $cond)
-(defattr ERROR 'SUBR ERROR)
-(defattr CALLSUBR 'SUBR CALLSUBR)
+(defglobal CAR 'SUBR CAR)
+(defglobal CDR 'SUBR CDR)
+(defglobal CONS 'SUBR CONS)
+(defglobal ATOM 'SUBR ATOM)
+(defglobal EQ 'SUBR EQ)
+(defglobal QUOTE 'FSUBR (lambda (args env) (car args)))
+(defglobal COND 'FSUBR $cond)
+(defglobal ERROR 'SUBR ERROR)
+(defglobal CALLSUBR 'SUBR CALLSUBR)
