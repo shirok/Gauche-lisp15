@@ -31,5 +31,12 @@
                                      (T (APPEND (REVERSE (CDR XS))
                                                 (CONS (CAR XS) NIL))))))))
 
+(evaltest '(G F E D C B A)
+          '#,(m-expr "reverse[(A B C D E F G)]")
+          '((REVERSE . #,(m-expr "lambda[[xs];\
+                                      [null[xs] -> NIL;\
+                                       T -> append[reverse[cdr[xs]];cons[car[xs];NIL]]]]"))))
+
+
 (test-end)
 
