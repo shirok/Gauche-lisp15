@@ -75,6 +75,11 @@
 (define (CONS x y) (cons x (if (eq? y *NIL*) '() y)))
 (define (ATOM x) (if ($atom? x) *T* *F*))
 (define (EQ x y) (if (eq? x y) *T* *F*))
+(define (CALLSUBR subr args) (apply subr args))
+(define (ERROR obj) (error "Meta*LISP Error:" ($lisp->scheme obj)))
+(define T *T*)
+(define F *T*)
+(define NIL *NIL*)
 
 (define-syntax QUOTE
   (syntax-rules ()
@@ -93,14 +98,6 @@
          (COND . more)
          (let ([var t])
            expr)))]))
-
-(define (CALLSUBR subr args) (apply subr args))
-(define T *T*)
-(define F *T*)
-(define NIL *NIL*)
-
-
-(define (ERROR obj) (error "Meta*LISP Error:" ($lisp->scheme obj)))
 
 (define-syntax $TOPLEVELS
   (syntax-rules ($=)
