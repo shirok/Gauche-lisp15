@@ -9,7 +9,7 @@
   (use util.match)
   (export $TOPLEVELS
           CAR CDR CONS ATOM EQ QUOTE COND CALLSUBR
-          T F NIL ERROR
+          T F NIL ERROR LAMBDA
           $scheme->lisp $lisp->scheme)
   )
 (select-module LISP1.5.runtime)
@@ -24,11 +24,11 @@
 (define *APVAL* `(ATOM ,*PNAME* "APVAL"))
 (define *SUBR*  `(ATOM ,*PNAME* "SUBR"))
 (define *NIL* (rlet1 nil (list 'ATOM *PNAME* "NIL" *APVAL*)
-                (set! (cddddr nil) (list nil))))
+                (set! (cdr (last-pair nil)) `((,nil)))))
 
-(define *F* `(ATOM ,*PNAME* "F" ,*APVAL* *NIL*))
+(define *F* `(ATOM ,*PNAME* "F" ,*APVAL* (,*NIL*)))
 (define *T* (rlet1 t (list 'ATOM *PNAME* "T" *APVAL*)
-              (set! (cddddr t) (list t))))
+              (set! (cdr (last-pair t)) `((,t)))))
 
 ;;
 ;; Helper functions
@@ -42,6 +42,7 @@
     (cond [(eq? obj *NIL*) '()]
           [($atom? obj) (string->symbol (cadr (member *PNAME* (cdr obj))))]
           [(pair? obj) (cons (rec (car obj)) (rec (cdr obj)))]
+          [(null? obj) '()]
           [else (format "#[~s]" obj)]))
   (if (eq? obj *NIL*)
     'NIL
@@ -78,26 +79,26 @@
 (define (CALLSUBR subr args) (apply subr args))
 (define (ERROR obj) (error "Meta*LISP Error:" ($lisp->scheme obj)))
 (define T *T*)
-(define F *T*)
+(define F *NIL*)
 (define NIL *NIL*)
 
+(define-syntax LAMBDA lambda)
 (define-syntax QUOTE
   (syntax-rules ()
     [(_ x) ($scheme->lisp 'x)]))
 (define-syntax COND
-  (syntax-rules (=> LAMBDA)
+  (syntax-rules (=>)
     [(_) *NIL*]
     [(_ (test expr) . more)
      (let ([t test])
        (if (or (eq? t *NIL*) (eq? t *F*))
          (COND . more)
          expr))]
-    [(_ (test => (LAMBDA (var) expr)) . more)          ; extension
+    [(_ (test => proc) . more)          ; extension
      (let ([t test])
        (if (or (eq? t *NIL*) (eq? t *F*))
          (COND . more)
-         (let ([var t])
-           expr)))]))
+         (proc t)))]))
 
 (define-syntax $TOPLEVELS
   (syntax-rules ($=)
@@ -113,27 +114,6 @@
 ;;; The "ground floor"---these are used to evaluate the second-level code
 ;;;
 
-(define $lisp-eval
-  (let1 promis (delay (get-keyword *SUBR* ($scheme->lisp 'EVAL)))
-    (lambda () (force promis))))
-(define $lisp-apply
-  (let1 promis (delay (get-keyword *SUBR* ($scheme->lisp 'APPLY)))
-    (lambda () (force promis))))
-
-(define ($cond args env)
-  (match args
-    [() *NIL*]
-    [((test expr) . rest)
-     (let1 val (($lisp-eval) test env)
-       (if (or (eq? val *F*) (eq? val *NIL*))
-         ($cond rest env)
-         (($lisp-eval) expr env)))]
-    [((test '=> proc) . rest)
-     (let1 val (($lisp-eval) test env)
-       (if (or (eq? val *F*) (eq? val *NIL*))
-         ($cond rest env)
-         (($lisp-apply) proc (list val) env)))]))
-
 (define-syntax defglobal
   (syntax-rules ()
     [(_ var key val)
@@ -145,7 +125,5 @@
 (defglobal CONS 'SUBR CONS)
 (defglobal ATOM 'SUBR ATOM)
 (defglobal EQ 'SUBR EQ)
-(defglobal QUOTE 'FSUBR (lambda (args env) (car args)))
-(defglobal COND 'FSUBR $cond)
 (defglobal ERROR 'SUBR ERROR)
 (defglobal CALLSUBR 'SUBR CALLSUBR)

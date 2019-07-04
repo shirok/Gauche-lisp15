@@ -19,6 +19,17 @@
 
 (evaltest 'A '(QUOTE A) '())
 (evaltest '(X . Y) '(CONS (QUOTE X) (QUOTE Y)) '())
+(evaltest 'NIL 'NIL '())
+(evaltest 'NIL 'F '())
+(evaltest 'T 'T '())
+
+(evaltest 'ORANGE 'APPLE '((APPLE . ORANGE)))
+(evaltest '(G F E D C B A)
+          '(REVERSE (QUOTE (A B C D E F G)))
+          '((REVERSE . (LAMBDA (XS)
+                               (COND ((NULL XS) NIL)
+                                     (T (APPEND (REVERSE (CDR XS))
+                                                (CONS (CAR XS) NIL))))))))
 
 (test-end)
 

@@ -22,7 +22,7 @@ sassoc[x;a;thunk] =
 get[x;y] =
   [null[x] → NIL;
    eq[car[x];y] → cadr[x];
-   T → get[cdr[x]; y]]
+   T → get[cdr[x];y]]
 
 #
 # Apply and Eval
@@ -41,7 +41,10 @@ apply[fn;args;a] =
 eval[form;a] =
   [null[form] → NIL;
    atom[form] → [get[form;APVAL] ⇒ λ[[v];car[v]];
-                  T → cdr[sassoc[var;a;λ[[];error[A8]]]]];
+                  T → cdr[sassoc[form;a;λ[[];error[A8]]]]];
+   eq[car[form];QUOTE] → cadr[form];
+   eq[car[form];FUNCTION] → cons[FUNARG;cons[cadr[form];cons[a;NIL]]];
+   eq[car[form];COND] → evcon[cdr[form];a];
    atom[car[form]] → [get[car[form];EXPR]
                          ⇒ λ[[e];apply[e;evlis[cdr[form];a];a]];
                        get[car[form];FEXPR]
