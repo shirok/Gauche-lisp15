@@ -32,11 +32,10 @@ member[a;l] = [null[l] → NIL;
                T → member[a;cdr[l]]]
 ----
 
-S-expressions are used to denote _data_, which was
-basically nested list structures.
+S-expressions were also used, but only to denote _data_.
 
 ----
-member[C;(A B C D E)] => (C D E)
+member[C;(A B C D E)]
 ----
 
 LISP programmers back then read and wrote programs in this form,

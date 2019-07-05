@@ -25,7 +25,6 @@
 (define *SUBR*  `(ATOM ,*PNAME* "SUBR"))
 (define *NIL* (rlet1 nil (list 'ATOM *PNAME* "NIL" *APVAL*)
                 (set! (cdr (last-pair nil)) `((,nil)))))
-
 (define *F* `(ATOM ,*PNAME* "F" ,*APVAL* (,*NIL*)))
 (define *T* (rlet1 t (list 'ATOM *PNAME* "T" *APVAL*)
               (set! (cdr (last-pair t)) `((,t)))))
