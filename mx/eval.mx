@@ -38,11 +38,6 @@ append[x;y] =
 
 # Building blocks
 
-member[x;y] =
-  [null[y] -> F;
-   equal[x;car[y]] -> T;
-   T -> member[z;cdr[y]]]
-
 pairlis[x;y;a] =
   [null[x] -> a;
    T -> cons[cons[car[x];car[y]]; pairlis[cdr[x];cdr[y];a]]]
