@@ -1043,9 +1043,7 @@ So, coincidentally, we can say LISP1.5 is somewhat between Lisp-1 and Lisp-2.
 
 === Enhancement of M-expressions
 
-[to be written...]
-
-
+...to be written...
 
 
 === Bridging worlds
