@@ -1043,7 +1043,43 @@ So, coincidentally, we can say LISP1.5 is somewhat between Lisp-1 and Lisp-2.
 
 === Enhancement of M-expressions
 
-...to be written...
+The `EVAL` procedure that uses symbol's property lists are
+shown in Appending B of "LISP1.5 Programmer's Manual".  However,
+it contains some pseudo code which were actually implemented
+in the assembly.   Although we can rewrite the code in pure
+LISP1.5, it would be pretty verbose; instead, we enhance our M-expressions
+a bit so that the pseudo code in Appendix B can be written naturally
+in our implementation.
+
+Specifically, we allow this clause in the `cond` form:
+
+----
+test => proc
+----
+
+The `test` expression is evaluated, and if it yields neither `NIL` nor `F`,
+the procedure `proc` is called with the result of `test` as the sole
+argument.  It is the same as Scheme's `cond`.  You can also
+use Unicode character `⇒` (U+21d2) in place of `=>`.
+
+We also allow `λ` (U+03bb) in place of `lambda`, for conciseness
+and similarity to the listing in "LISP1.5 Programmer's Manual".
+
+Here's a Scheme's `filter-map` written in our M-expression:
+
+----
+filtermap[pred;lis] =
+   [null[lis] → NIL;
+    pred[car[lis]] ⇒ λ[[x];cons[x;filtermap[pred;cdr[lis]]]];
+    T → filtermap[pred;cdr[lis]]]
+----
+
+It works as follows:
+
+----
+filtermap[atom;(A (B) C (D) E)]
+  ⇒ (A C E)
+----
 
 
 === Bridging worlds
@@ -1107,6 +1143,12 @@ can access the functionality of lower floor:
   when error occurs, and such a mechanism needs access to the basement.
   For now, we provide `ERROR` procedure as another primitive.
 
+* The previous version of `EVAL` didn't have literal fuction (lambda form)
+  in `EVAL` code itself---the lambda form is dealt by `EVAL`, but
+  the Basement that executes `EVAL` doesn't need to know that.  Now that,
+  for our convenience, we use several lambda forms in the definition of `EVAL`,
+  so the Basement needs to deal with them, too.
+
 The revised runtime Basement routines---replacing `axioms.scm` is
 in `LISP1/5/runtime.scm`:
 
@@ -1151,7 +1193,100 @@ in `LISP1/5/runtime.scm`:
             ...)]))
 ----
 
+When we read the definition of new `EVAL` in Gauche, the literals
+are passed as Gauche's liteals.  We treat it as LISP1.5 literals,
+hence our `QUOTE` form in the basement translates Gauche literals
+to LISP1.5 literals by `$scheme->lisp`.
+
+The `COND` is also enhanced to handle our extension.
+
+The `$TOPLEVELS` now not only defines Gauche procedures,
+but also registers the defined form to the LISP1.5 symbol's `EXPR`
+property.  That is, if we load this M-expression on top of the
+Basement:
+
+----
+caar[x] = car[car[x]]
+----
+
+It defines (1) a Gauche procedure `CAAR`, and (2) it registers `EXPR`
+property of LISP1.5 symbol `CAAR` with S-expression
+`(LAMBDA (X) (CAR (CAR X)))`.
 
 
+=== Revised `EVAL` with global environment:
+
+Now we write `EVAL` that understands the global environment.
+First we need a couple of auxiliary procedures.
+
+Previously, we used `assoc` to search local bindings in the
+local environment.  We didn't consider an error there, so if you
+use undefined variable it yielded Gauche error.  The following `sassoc`
+takes an extra thunk (a procedure with no arguments) and invokes it
+when the item `x` isn't found in an associative list `a`:
+
+----
+sassoc[x;a;thunk] =
+  [null[a] → thunk[];
+   equal[caar[a];x] → car[a];
+   T → sassoc[x;cdr[a];thunk]]
+----
+
+Another function is to get the property value with the key `y` in
+the symbol `x`.  As we explained above, we access symbol's property list
+just using `car` and `cdr`:
+
+----
+get[x;y] =
+  [null[x] → NIL;
+   eq[car[x];y] → cadr[x];
+   T → get[cdr[x];y]]
+----
+
+Note: Since a property list alternates keys and values, it must loop
+with `cddr`---skipping a value.  However, LISP1.5 Programmer's Manual
+lists the above code, just looping with `cdr`.  I don't know if it
+was just an overlook or they just reused exisitng `get` procedure.
+
+One consequence of that choice is that we can't simply store the
+symbol's global value as `APVAL`'s value, since if that value happens
+to be a symbol such as `EXPR`, it'll confuse `get` procedure.
+So the `APVAL`'s value is wrapped with a list.
+
+Now, we can write revised `APPLY` and `EVAL` that maintaines
+the global environment in symbols' propetry lists:
+
+
+----
+apply[fn;args;a] =
+  [null[fn] → NIL;
+   atom[fn] → [get[fn;EXPR] ⇒ λ[[e];apply[e;args;a]];
+                get[fn;SUBR] ⇒ λ[[s];callsubr[s;args]];
+                T → apply[cdr[sassoc[fn;a;λ[[];error[A2]]]];args;a]];
+   eq[car[fn];LABEL] → apply[caddr[fn];args;cons[cons[cadr[fn];caddr[fn]];a]];
+   eq[car[fn];FUNARG] → apply[cadr[fn];args;caddr[fn]];
+   eq[car[fn];LAMBDA] → eval[caddr[fn];pairlis[cadr[fn];args;a]];
+   T → apply[eval[fn;a];args;a]]
+
+eval[form;a] =
+  [null[form] → NIL;
+   atom[form] → [get[form;APVAL] ⇒ λ[[v];car[v]];
+                  T → cdr[sassoc[form;a;λ[[];error[A8]]]]];
+   eq[car[form];QUOTE] → cadr[form];
+   eq[car[form];FUNCTION] → cons[FUNARG;cons[cadr[form];cons[a;NIL]]];
+   eq[car[form];COND] → evcon[cdr[form];a];
+   atom[car[form]] → [get[car[form];EXPR]
+                         ⇒ λ[[e];apply[e;evlis[cdr[form];a];a]];
+                       get[car[form];FEXPR]
+                         ⇒ λ[[f];apply[f;cons[cdr[form];cons[a;NIL]];a]];
+                       get[car[form];SUBR]
+                         ⇒ λ[[s];callsubr[s;evlis[cdr[form];a]]];
+                       get[car[form];FSUBR]
+                         ⇒ λ[[f];callsubr[f;cons[cdr[form];cons[a;NIL]]]];
+                       T → eval[cons[cdr[sassoc[car[form];a;λ[[];error[A9]]]];
+                                     cdr[form]];
+                                a]];
+   T → apply[car[form];evlis[cdr[form];a];a]]
+----
 
 
