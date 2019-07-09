@@ -1213,6 +1213,25 @@ It defines (1) a Gauche procedure `CAAR`, and (2) it registers `EXPR`
 property of LISP1.5 symbol `CAAR` with S-expression
 `(LAMBDA (X) (CAR (CAR X)))`.
 
+The `runtime.scm` also defines `SUBR` property of
+several symbols that are used as primitives:
+
+----
+(define-syntax defglobal
+  (syntax-rules ()
+    [(_ var key val)
+     (let1 lsym ($scheme->lisp 'var)
+       (set! (cdr lsym) `(,($scheme->lisp key) ,val ,@(cdr lsym))))]))
+
+(defglobal CAR 'SUBR CAR)
+(defglobal CDR 'SUBR CDR)
+(defglobal CONS 'SUBR CONS)
+(defglobal ATOM 'SUBR ATOM)
+(defglobal EQ 'SUBR EQ)
+(defglobal ERROR 'SUBR ERROR)
+(defglobal CALLSUBR 'SUBR CALLSUBR)
+----
+
 
 === Revised `EVAL` with global environment:
 
@@ -1309,3 +1328,31 @@ It first accesses symbol's `APVAL` property, then
 searches the environment.  That is, symbol's global value takes
 precedence from local values.
 
+You can run this version of `EVAL` by loading
+`mx/genv.mx` into Gauche.
+Note that `EVAL` now accepts LISP1.5 data, and returns
+LISP1.5 data.  You have to convert them to Gauche's data back and forth.
+
+Here, we just evaluate the global variable `F`, whose value is
+`NIL`:
+
+----
+gosh> ($lisp->scheme (EVAL ($scheme->lisp 'F) ($scheme->lisp '())))
+NIL
+----
+
+The following code defines `REVERSE` function locally and calls it.
+Note that `null` and `append` are already stored as `EXPR` property
+of those symbols when we loaded `genv.mx`, so we don't need
+to provide them in the environment:
+
+----
+gosh> ($lisp->scheme
+        (EVAL ($scheme->lisp '#,(m-expr "reverse[(A B C D E F G)]"))
+              ($scheme->lisp 
+               '((REVERSE . #,(m-expr "lambda[[xs];\
+                                         [null[xs] -> NIL;\
+                                         T -> append[reverse[cdr[xs]];cons[car[xs];NIL]]]]"))))))
+
+(G F E D C B A)
+----
