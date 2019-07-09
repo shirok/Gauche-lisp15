@@ -1256,7 +1256,6 @@ So the `APVAL`'s value is wrapped with a list.
 Now, we can write revised `APPLY` and `EVAL` that maintaines
 the global environment in symbols' propetry lists:
 
-
 ----
 apply[fn;args;a] =
   [null[fn] → NIL;
@@ -1289,4 +1288,24 @@ eval[form;a] =
    T → apply[car[form];evlis[cdr[form];a];a]]
 ----
 
+This is pretty close to what is shown in the Appendix B of
+"LISP1.5 Programmer's Manual".
+
+Note that We have a couple of calls of `ERROR`.  The argument is an
+error code.
+
+* `error[A2]` : A symbol is used as a procedure but doesn't have a binding.
+* `error[A8]` : A symbol is used as a variable but doesn't have a binding.
+* `error[A9]` : A symbol is used as a procedure or syntax but doesn't have a binding.
+
+Another curious point.  Check the `atom` branch of `eval`:
+
+----
+   atom[form] → [get[form;APVAL] ⇒ λ[[v];car[v]];
+                  T → cdr[sassoc[form;a;λ[[];error[A8]]]]];
+----
+
+It first accesses symbol's `APVAL` property, then
+searches the environment.  That is, symbol's global value takes
+precedence from local values.
 
