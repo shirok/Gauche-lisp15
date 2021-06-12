@@ -53,7 +53,7 @@
             [(#/^[a-z][a-z0-9]*$/ s) `(ident ,(string->symbol (string-upcase s)))]
             [else (error "Invalid word: " s)]))))
 
-(define %word ($lift make-word ($many-chars #[0-9a-zA-Z] 1)))
+(define %word ($lift make-word ($many ($. #[0-9a-zA-Z]) 1)))
 
 ;; A few reserved word
 (define %lambda ($seq ($or ($."lambda") ($. #\λ)) ($return 'LAMBDA)))
