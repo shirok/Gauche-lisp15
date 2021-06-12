@@ -8,6 +8,7 @@
 
 (define-module LISP1.5.mexpr
   (use parser.peg)
+  (use parser.peg.deprecated)
   (use util.match)
   (use gauche.parameter)
   (use gauche.unicode)
