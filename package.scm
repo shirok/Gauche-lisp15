@@ -3,7 +3,7 @@
 ;;
 
 (define-gauche-package "Gauche-lisp15"
-  ;; 
+  ;;
   :version "1.0"
 
   ;; Description of the package.  The first line is used as a short
@@ -21,7 +21,7 @@
   ;; Example:
   ;;      :providing-modules (util.algorithm1 util.algorithm1.option)
   :providing-modules (LISP1.5)
-  
+
   ;; List name and contact info of authors.
   ;; e.g. ("Eva Lu Ator <eval@example.com>"
   ;;       "Alyssa P. Hacker <lisper@example.com>")

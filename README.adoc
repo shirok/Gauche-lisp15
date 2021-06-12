@@ -128,7 +128,7 @@ gosh> (parse-mexpr "null[x] = [eq[NIL;x]→T; T→F]]")
 ($= (NULL X) (COND ((EQ (QUOTE NIL) X) (QUOTE T)) ((QUOTE T) (QUOTE F))))
 ----
 
-(The preceding `$` of `$=` indicates it is an internal or 
+(The preceding `$` of `$=` indicates it is an internal or
 implementation-dependent feature.)
 
 The `parse-mexpr` function only parses one M-expression.
@@ -165,7 +165,7 @@ test => fun
 ----
 
 Here, `fun` must be a LAMBDA form that takes one argument,
-or an expression that yield a function.  
+or an expression that yield a function.
 First, `test` is evaluated, and if it yiels a true value
 (a value neither `NIL` nor `F`), the value is passed
 to the function.  It's the same as Scheme's `cond` feature with `\=>`.
@@ -181,7 +181,7 @@ in M-expressions, as follows:
 ----
 ;;
 ;; Scheme comments
-;; 
+;;
 (use LISP1.5.mexpr)
 #!m-expr
 
@@ -234,7 +234,7 @@ the function after the `DEFINE` form, as follows:
 ----
 DEFINE ((
  ... definitions ..
-(DOSOMETHING (LABMDA (ARG ...) EXPR))   
+(DOSOMETHING (LABMDA (ARG ...) EXPR))
 ))
 
 DOSOMETHING (ARG ...)
@@ -334,7 +334,7 @@ gosh> (EVAL '#,(m-expr "label[append;lambda[[xs;r];\
 
 This interpreter only _knows_ the minimal 7 primitives:
 `CAR`, `CDR`, `CONS`, `ATOM`, `EQ`, `QUOTE`, and `COND`.
-To refer to anything other than that, 
+To refer to anything other than that,
 you have to pass them in the environment argument.
 
 The following example reverses a list, using the
@@ -355,7 +355,7 @@ gosh> (EVAL '#,(m-expr "reverse[(A B C D E F G)]")
 
 [NOTE]
 ================================================================
-We need to provide the function `NULL` in the environment, 
+We need to provide the function `NULL` in the environment,
 since the one defined in `eval.mx` exists in the world of Gauche, and is
 not visible from the world of `EVAL`.
 ================================================================
@@ -395,7 +395,7 @@ interpreter and there's no fancy error handling mechanism.
 
 Since the universal LISP function defined in `eval.mx` understands
 the primitives required to interpret functions in `eval.mx`, you can use
-our `EVAL` to evaluate `eval.mx` to run `EVAL` on top of 
+our `EVAL` to evaluate `eval.mx` to run `EVAL` on top of
 `EVAL` -- now you're running a metacircular interpreter!
 
 You might have noticed though, that `axioms.scm` provides `$TOPLEVELS`,
@@ -408,7 +408,7 @@ are C built-ins then `$TOPLEVELS` is `#pragma` or `Makefile` -- they belong
 to a different layer.)
 
 Of course, it is more convenient to have an ability in the core language
-to add new toplevel definitions, 
+to add new toplevel definitions,
 and we'll deal with it later.  For now, let's stick to the 7 primitives.
 
 In order to run `EVAL` inside `EVAL`, we need to prepare the definitions
@@ -467,7 +467,7 @@ That is, it defines `EVAL*` which takes one LISP1.5 expression and
 evaluates it under the enviornment where all the definitions in `eval.mx`
 is visible.
 
-The created `eval.lisp` can be loaded to `gosh` after using `LISP1.5.axioms`.  
+The created `eval.lisp` can be loaded to `gosh` after using `LISP1.5.axioms`.
 Together with `mx/eval.mx`, you can run `EVAL` on top of `EVAL`:
 
 ----
@@ -558,7 +558,7 @@ mapcar[fn;x] = [null[x] -> NIL;
 
 It is in link:mx/mapcar.mx[].  You can't load it directly
 into Gauche, however.  Treating a list starting with `LAMBDA` as
-a function is a feature of `EVAL`, not Gauche.  
+a function is a feature of `EVAL`, not Gauche.
 We have to make `EVAL` understand the above definition.
 
 We can use the same technique we used in the metacircular interpreter --
@@ -669,7 +669,7 @@ under the following environment:
 ((Y . P)
  (FN . (LAMBDA (Y) (CONS X Y)))
  (X . (P Q R))                                <1>
- (X . A)                                      <2> 
+ (X . A)                                      <2>
  (FN . (LAMBDA (X)
          (MAPCAR (QUOTE (LAMBDA (Y) (CONS X Y)))
                  (QUOTE (P Q R)))))
@@ -693,7 +693,7 @@ different from the formal parameter of `MAPCAR`, it works as expected:
 
 ----
 (EVAL* '(MAPCAR (QUOTE (LAMBDA (Z)                                  <1>
-                         (MAPCAR (QUOTE (LAMBDA (Y) (CONS Z Y))) 
+                         (MAPCAR (QUOTE (LAMBDA (Y) (CONS Z Y)))
                                  (QUOTE (P Q R)))))
                 (QUOTE (A B C))))
  => (((A . P) (A . Q) (A . R)) ((B . P) (B . Q) (B . R)) ((C . P) (C . Q) (C . R)))
@@ -712,7 +712,7 @@ our call of nested `MAPCAR` would look like this:
 
 ----
 (EVAL* '(MAPCAR (FUNCTION (LAMBDA (X)
-                            (MAPCAR (FUNCTION (LAMBDA (Y) (CONS X Y))) 
+                            (MAPCAR (FUNCTION (LAMBDA (Y) (CONS X Y)))
                                     (QUOTE (P Q R)))))
                 (QUOTE (A B C))))
 ----
@@ -1023,7 +1023,7 @@ of arguments by yourself.
 Lisp dialects can be categorized to either Lisp-1 or Lisp-2.
 They are not versions, but about namespaces.
 
-Lisp-1 unifies function and variable namespaces, so in the 
+Lisp-1 unifies function and variable namespaces, so in the
 function call syntax, the function name is looked up the same
 way as variable look-up.  Scheme is Lisp-1.
 
@@ -1136,7 +1136,7 @@ can access the functionality of lower floor:
   For usability, we need some minimal mechanism to signal an error.
   Theoretically, a sophisticated error handling mechanism can be implemented
   fully in LISP layer---e.g. we can define a special "error" value, and
-  whenever something yields an error value, we let all the expressions 
+  whenever something yields an error value, we let all the expressions
   that got the error value just returns it, so that the error value
   propagates to the final result.
   However, it is convenient to stop and examine the evaluator at the moment
@@ -1349,7 +1349,7 @@ to provide them in the environment:
 ----
 gosh> ($lisp->scheme
         (EVAL ($scheme->lisp '#,(m-expr "reverse[(A B C D E F G)]"))
-              ($scheme->lisp 
+              ($scheme->lisp
                '((REVERSE . #,(m-expr "lambda[[xs];\
                                          [null[xs] -> NIL;\
                                          T -> append[reverse[cdr[xs]];cons[car[xs];NIL]]]]"))))))

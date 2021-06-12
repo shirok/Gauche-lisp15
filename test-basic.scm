@@ -74,7 +74,7 @@
                                        T -> append[reverse[cdr[xs]];cons[car[xs];NIL]]]]"))
                )))
 
-(define-module metacircular-test1 
+(define-module metacircular-test1
   (use LISP1.5.axioms)
   (load "mx/eval.mx" :environment (current-module))
   (load "lisp/eval.lisp" :environment (current-module)))
@@ -82,7 +82,7 @@
        (with-module metacircular-test1
          (EVAL* '#,(m-expr"eval[(CONS (QUOTE X) (QUOTE Y));NIL]"))))
 
-(define-module metacircular-test2 
+(define-module metacircular-test2
   (use LISP1.5.axioms)
   (load "mx/eval.mx" :environment (current-module))
   (load "lisp/mapcar.lisp" :environment (current-module)))

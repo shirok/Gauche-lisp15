@@ -9,7 +9,7 @@
   (export make-memory the-mem
           *NIL* *PNAME* *APVAL* *EXPR* *FEXPR* *SUBR* *FSUBR* *T* *F*
           *OBLIST* *OBLIST-SIZE*
-          
+
           ;;$full-word?
           ;;$cons? $symbol? $fixnum? $flonum?
           ))
@@ -19,7 +19,7 @@
 ;; so that we can get the feeling of those days.
 
 (define-constant *MEMORY-SIZE* 65536)   ;Number of words.  Data layout heavily
-                                        ;depends on this, so can't be change 
+                                        ;depends on this, so can't be change
                                         ;casually.
 (define-constant *NATIVE-SIZE* 2048)    ;Native vector size.
 
@@ -41,7 +41,7 @@
 (define-constant *TAG-FIXNUM* #xfffd)
 (define-constant *TAG-FLONUM* #xfffc)
 
-;; The last part of full words area is reserved by the system, so that 
+;; The last part of full words area is reserved by the system, so that
 ;; above tags would never be a valid pointer.  We use two of reserved words
 ;; for the anchors of freelists:
 (define-constant *FREELIST-CONS* #xffff)
@@ -71,7 +71,7 @@
 (define-constant *OBLIST* *NUM-RESERVERD-SYMBOLS*)
 (define-constant *NUM-RESERVED-CELLS* (+ *OBLIST* *OBLIST-SIZE*))
 
-;; Create a new memory.  Only freelists and OBLIST are initialized; the 
+;; Create a new memory.  Only freelists and OBLIST are initialized; the
 ;; predefined symbols must be initialized in symbol.scm
 (define (make-memory)
   (rlet1 mem (make <memory>)
@@ -107,7 +107,7 @@
                           (not ($full-word? ($car ptr)))))
 (define ($atom? ptr) (and (not ($full-word? ptr))
                           ($full-word? ($car ptr))))
-  
+
 (define ($symbol? ptr) (and (not ($full-word? ptr))
                             (eqv? ($car ptr) *TAG-SYMBOL*)))
 (define ($native? ptr) (and (not ($full-word? ptr))
@@ -162,7 +162,7 @@
   (cond [($null? plist) *NIL*]
         [(eqv? ($car plist) key) ($car ($cdr plist))]
         [else ($get-prop ($cdr ($cdr plist)) key)]))
-       
+
 ;; Bytes area is used to store variable-length strings.  In LISP1.5, strings
 ;; are stored as a linked list of "full word"s, where each full word is 36bit
 ;; work that can hold up to 6 characters.   We use byte-addressable memory
@@ -173,7 +173,7 @@
 ;; Allocate num-bytes from bytes area and returns its tagged index.
 ;; NB: bytes and strings are "under the hood" in LISP1.5---they can't be
 ;; manipulated directly from LISP code.
-(define ($new-bytes num-bytes) 
+(define ($new-bytes num-bytes)
   (unless (< (+ (~ (the-mem)'freebyte) num-bytes) (~ (the-mem)'num-bytes))
     (error "Bytes exhausted."))
   (rlet1 ind (logior (~ (the-mem)'freebyte) *BYTE-PAGE*)

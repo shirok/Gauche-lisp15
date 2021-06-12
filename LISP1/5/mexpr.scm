@@ -95,19 +95,15 @@
 (define %list-tail
   ($lazy ($or ($seq ($. #\)) ($return '()))
               ($between ($. #\.) %datum ($. #\)))
-              ($do [x %datum]
-                   [y %list-tail]
-                   ($return (cons x y))))))
-            
+              ($lift cons %datum %list-tail))))
+
 (define %list
   ($seq ($. #\()
         ($or ($seq ($. #\)) ($return '()))
-             ($do [x %datum]
-                  [y %list-tail]
-                  ($return (cons x y))))))
+             ($lift cons %datum %list-tail))))
 
 (define %form
-  ($lazy ($or ($do [x %datum] ($return `(QUOTE ,x)))
+  ($lazy ($or ($lift (cut list 'QUOTE <>) %datum)
               %conditional
               %funcall-or-variable
               ($eos))))
@@ -199,7 +195,7 @@
 ;;   ... code written in M-expression ...
 ;;
 ;; NB: This module does not defines any LISP1.5 primitive syntax.
-;; To load m-expr that uses LISP1.5 syntax, you want to use other 
+;; To load m-expr that uses LISP1.5 syntax, you want to use other
 ;; modules such as LISP1.5.axiom.
 
 ;; LISP1.5 employs special treatment on toplevel forms, and it's not
