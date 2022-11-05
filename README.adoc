@@ -154,7 +154,7 @@ In Appendix B of LISP 1.5 Programmer's Manual, they use
 a pseudo extension of conditional expression for concise
 explanation, in which you can access the result of test expression
 from the expression in that branch.
-Such extension didn't formalized and the actual
+Such extension wasn't formalized and the actual
 code is written in assembly language instead of M-expressions.
 But for our purpose it'll be convnient to support such extension.
 
