@@ -8,7 +8,9 @@
 
   ;; Description of the package.  The first line is used as a short
   ;; summary.
-  :description "LISP1.5 implementation on Gauche"
+  :description "LISP1.5 implementation on Gauche.\n\
+               Also provides M-expression parser, so that you can write \
+               LISP program in M-expression!"
 
   ;; List of dependencies.
   ;; Example:
